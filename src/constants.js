@@ -40,5 +40,6 @@ export const ENGINEER_CLIP_MAX = 12
 
 export const DEAL_REWARD = 2 // both parties earn +2 credits on a closed deal
 export const BEAT_PRICE = 10 // credits required to buy a beat
+export const PAGE_SIZE = 15
 
 export const roleMeta = (id) => ROLES.find((r) => r.id === id) || ROLES[0]
