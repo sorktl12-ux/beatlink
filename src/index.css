@@ -48,6 +48,14 @@
     background-image: radial-gradient(circle at 20% 10%, rgba(255, 215, 0, 0.06), transparent 45%),
       radial-gradient(circle at 85% 0%, rgba(204, 68, 255, 0.05), transparent 40%);
   }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Custom scrollbar */

@@ -1,6 +1,6 @@
 const sizeMap = {
   sm: { logo: 'h-7 w-7', text: 'text-xl' },
-  md: { logo: 'h-8 w-8', text: 'text-2xl' },
+  md: { logo: 'h-6 w-6 sm:h-8 sm:w-8', text: 'text-lg sm:text-2xl' },
   lg: { logo: 'h-10 w-10', text: 'text-4xl' },
   hero: { logo: 'h-11 w-11 sm:h-14 sm:w-14', text: 'text-5xl sm:text-7xl lg:text-8xl' },
 }
