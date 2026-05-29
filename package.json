@@ -1,5 +1,5 @@
 {
-  "name": "vision-board",
+  "name": "beatlink",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -9,9 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "firebase": "^10.12.0"
+    "react-router-dom": "^6.30.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
