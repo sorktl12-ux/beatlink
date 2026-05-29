@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { supabase, IMAGE_BUCKET, publicImageUrl } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useLocale } from '../contexts/LocaleContext'
 import Modal from './Modal'
 
 export default function NewItemForm({ onClose, onCreated }) {
   const { user, profile } = useAuth()
+  const { t } = useLocale()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
@@ -15,10 +17,10 @@ export default function NewItemForm({ onClose, onCreated }) {
   const submit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!title.trim()) return setError('Please enter a title.')
+    if (!title.trim()) return setError(t('itemForm.errTitle'))
     const priceNum = parseInt(price, 10)
-    if (Number.isNaN(priceNum) || priceNum < 0) return setError('Please enter a valid price.')
-    if (file && !file.type.startsWith('image/')) return setError('Only image files are allowed.')
+    if (Number.isNaN(priceNum) || priceNum < 0) return setError(t('itemForm.errPrice'))
+    if (file && !file.type.startsWith('image/')) return setError(t('itemForm.errImage'))
     setBusy(true)
     try {
       let imageUrl = null
@@ -48,47 +50,47 @@ export default function NewItemForm({ onClose, onCreated }) {
       onClose()
     } catch (err) {
       console.error(err)
-      setError('Upload failed: ' + (err.message || 'unknown error'))
+      setError(t('itemForm.errUpload', { msg: err.message || 'unknown error' }))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Modal title="List an Item" onClose={onClose}>
+    <Modal title={t('itemForm.title')} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-muted mb-1.5">Title</label>
+          <label className="block text-xs font-semibold text-muted mb-1.5">{t('itemForm.itemTitle')}</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none"
-            placeholder="e.g. Shure SM7B microphone"
+            placeholder={t('itemForm.titlePh')}
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-muted mb-1.5">Price (KRW)</label>
+          <label className="block text-xs font-semibold text-muted mb-1.5">{t('itemForm.price')}</label>
           <input
             type="number"
             min="0"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none"
-            placeholder="e.g. 250000"
+            placeholder={t('itemForm.pricePh')}
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-muted mb-1.5">Details</label>
+          <label className="block text-xs font-semibold text-muted mb-1.5">{t('itemForm.details')}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none resize-none"
-            placeholder="Condition, usage, contact info, etc."
+            placeholder={t('itemForm.detailsPh')}
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-muted mb-1.5">Photo (optional)</label>
+          <label className="block text-xs font-semibold text-muted mb-1.5">{t('itemForm.photo')}</label>
           <input
             type="file"
             accept="image/*"
@@ -107,7 +109,7 @@ export default function NewItemForm({ onClose, onCreated }) {
           disabled={busy}
           className="w-full rounded-lg bg-gold text-ink font-bold py-3 hover:bg-gold-hi transition-colors disabled:opacity-50"
         >
-          {busy ? 'Listing...' : 'List Item'}
+          {busy ? t('itemForm.listing') : t('itemForm.listItem')}
         </button>
       </form>
     </Modal>

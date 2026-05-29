@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe()
   }, [])
 
-  // Load + live-subscribe to the signed-in member's profile (incl. credits)
+  // Load + live-subscribe to the signed-in member's profile
   useEffect(() => {
     if (!user) return
     let active = true

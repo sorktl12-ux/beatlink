@@ -1,14 +1,14 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useLocale } from '../contexts/LocaleContext'
 import BrandMark from './BrandMark'
 
 const NAV_LINKS = [
-  { to: '/board/player', label: 'Player', activeCls: 'text-gold' },
-  { to: '/board/producer', label: 'Producer', activeCls: 'text-violet' },
-  { to: '/board/engineer', label: 'Engineer', activeCls: 'text-teal' },
-  { to: '/shop', label: 'Beatshop', activeCls: 'text-gold' },
-  { to: '/market', label: 'Market', activeCls: 'text-emerald' },
-  { to: '/admin', label: 'Admin', activeCls: 'text-gold', adminOnly: true },
+  { to: '/board/player', labelKey: 'nav.player', activeCls: 'text-gold' },
+  { to: '/board/producer', labelKey: 'nav.producer', activeCls: 'text-violet' },
+  { to: '/board/engineer', labelKey: 'nav.engineer', activeCls: 'text-teal' },
+  { to: '/market', labelKey: 'nav.market', activeCls: 'text-emerald' },
+  { to: '/admin', labelKey: 'nav.admin', activeCls: 'text-gold', adminOnly: true },
 ]
 
 const navItem = (activeCls) => ({ isActive }) =>
@@ -21,8 +21,30 @@ const mobileNavItem = (activeCls) => ({ isActive }) =>
     isActive ? activeCls : 'text-muted hover:text-white'
   }`
 
+function LangSwitch() {
+  const { locale, setLocale, t } = useLocale()
+  return (
+    <div className="flex rounded-full border border-line bg-surface p-0.5 shrink-0">
+      {(['en', 'ko']).map((l) => (
+        <button
+          key={l}
+          type="button"
+          onClick={() => setLocale(l)}
+          className={`px-2 py-1 text-[10px] sm:text-xs font-bold rounded-full transition-colors ${
+            locale === l ? 'bg-gold text-ink' : 'text-muted hover:text-white'
+          }`}
+          aria-pressed={locale === l}
+        >
+          {t(`lang.${l}`)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function Navbar() {
   const { isAuthed, isAdmin, profile, logout } = useAuth()
+  const { t } = useLocale()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -40,12 +62,13 @@ export default function Navbar() {
         <nav className="hidden sm:flex items-center gap-0 ml-0.5 shrink-0">
           {NAV_LINKS.filter((link) => !link.adminOnly || isAdmin).map((link) => (
             <NavLink key={link.to} to={link.to} className={navItem(link.activeCls)}>
-              {link.label}
+              {t(link.labelKey)}
             </NavLink>
           ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
+          <LangSwitch />
           {isAuthed ? (
             <>
               {!isAdmin && profile && (
@@ -56,22 +79,18 @@ export default function Navbar() {
                   <span className="text-xs sm:text-sm font-semibold text-white truncate">
                     {profile.username}
                   </span>
-                  <span className="text-gold text-xs sm:text-sm font-bold tabular-nums shrink-0">
-                    {profile.credits ?? 0}
-                    <span className="text-[10px] text-muted ml-0.5">CR</span>
-                  </span>
                 </Link>
               )}
               {isAdmin && (
                 <span className="rounded-full bg-gold/15 text-gold text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 border border-gold/30 shrink-0">
-                  ADMIN
+                  {t('nav.admin').toUpperCase()}
                 </span>
               )}
               <button
                 onClick={handleLogout}
                 className="text-xs sm:text-sm text-muted hover:text-crimson transition-colors whitespace-nowrap shrink-0"
               >
-                Log Out
+                {t('nav.logOut')}
               </button>
             </>
           ) : (
@@ -79,18 +98,17 @@ export default function Navbar() {
               to="/login"
               className="rounded-full bg-gold text-ink text-xs sm:text-sm font-bold px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gold-hi transition-colors whitespace-nowrap shrink-0"
             >
-              <span className="sm:hidden">Log In</span>
-              <span className="hidden sm:inline">Log In / Join</span>
+              <span className="sm:hidden">{t('nav.logIn')}</span>
+              <span className="hidden sm:inline">{t('nav.logInJoin')}</span>
             </Link>
           )}
         </div>
       </div>
 
-      {/* mobile board links — horizontal scroll instead of clipping */}
       <nav className="sm:hidden flex items-center gap-0 overflow-x-auto flex-nowrap scrollbar-none border-t border-line px-2 py-1.5">
         {NAV_LINKS.filter((link) => !link.adminOnly || isAdmin).map((link) => (
           <NavLink key={link.to} to={link.to} className={mobileNavItem(link.activeCls)}>
-            {link.label}
+            {t(link.labelKey)}
           </NavLink>
         ))}
       </nav>

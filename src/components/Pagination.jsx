@@ -1,6 +1,7 @@
+import { useLocale } from '../contexts/LocaleContext'
+
 const WINDOW = 5
 
-/** Up to 5 page numbers, sliding as total pages grow. */
 function pageRange(page, totalPages) {
   if (totalPages <= WINDOW) {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -22,6 +23,7 @@ function pageRange(page, totalPages) {
 }
 
 export default function Pagination({ page, totalPages, onPageChange }) {
+  const { t } = useLocale()
   const pages = pageRange(page, totalPages)
   const hasPrevWindow = pages[0] > 1
   const hasNextWindow = pages[pages.length - 1] < totalPages
@@ -37,7 +39,7 @@ export default function Pagination({ page, totalPages, onPageChange }) {
         disabled={page <= 1}
         className="px-3 py-1.5 rounded-lg border border-line text-sm font-semibold text-muted hover:text-white hover:border-gold/40 disabled:opacity-30 disabled:pointer-events-none transition-colors"
       >
-        Prev
+        {t('pagination.prev')}
       </button>
 
       {hasPrevWindow && (
@@ -88,7 +90,7 @@ export default function Pagination({ page, totalPages, onPageChange }) {
         disabled={page >= totalPages}
         className="px-3 py-1.5 rounded-lg border border-line text-sm font-semibold text-muted hover:text-white hover:border-gold/40 disabled:opacity-30 disabled:pointer-events-none transition-colors"
       >
-        Next
+        {t('pagination.next')}
       </button>
     </nav>
   )

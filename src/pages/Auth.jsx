@@ -1,24 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useLocale } from '../contexts/LocaleContext'
 import { ROLES } from '../constants'
-
-const authErr = (msg) => {
-  if (!msg) return null
-  const m = msg.toLowerCase()
-  if (m.includes('already registered') || m.includes('already been registered'))
-    return 'That ID is already taken.'
-  if (m.includes('invalid login')) return 'Invalid ID or password.'
-  if (m.includes('password') && (m.includes('at least') || m.includes('characters')))
-    return 'Password is too short. Set the minimum length to 4 in Supabase (Auth > Sign In / Providers > Email).'
-  if (m.includes('email not confirmed'))
-    return 'Email confirmation is on in Supabase. Turn it OFF (Auth > Providers > Email).'
-  return null
-}
 
 const KOREAN_NAME = /^[가-힣]{2,}$/
 
 export default function Auth() {
+  const { t } = useLocale()
   const [mode, setMode] = useState('login')
   const [id, setId] = useState('')
   const [password, setPassword] = useState('')
@@ -30,19 +19,30 @@ export default function Auth() {
   const { login, signup, isAuthed, loading } = useAuth()
   const navigate = useNavigate()
 
+  const authErr = (msg) => {
+    if (!msg) return null
+    const m = msg.toLowerCase()
+    if (m.includes('already registered') || m.includes('already been registered'))
+      return t('auth.errTaken')
+    if (m.includes('invalid login')) return t('auth.errInvalid')
+    if (m.includes('password') && (m.includes('at least') || m.includes('characters')))
+      return t('auth.errPwShort')
+    if (m.includes('email not confirmed')) return t('auth.errEmailConfirm')
+    return null
+  }
+
   if (!loading && isAuthed) return <Navigate to="/" replace />
 
   const submit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!id.trim()) return setError('Please enter an ID.')
+    if (!id.trim()) return setError(t('auth.errId'))
     if (mode === 'signup') {
-      if (password.length < 4) return setError('Password must be at least 4 characters.')
-      if (!KOREAN_NAME.test(fullName.trim()))
-        return setError('본명을 한글로 입력해 주세요 (2자 이상).')
+      if (password.length < 4) return setError(t('auth.errPw'))
+      if (!KOREAN_NAME.test(fullName.trim())) return setError(t('auth.errName'))
       const digits = phone.replace(/\D/g, '')
       if (digits.length < 10 || digits.length > 11 || digits[0] !== '0')
-        return setError('올바른 핸드폰 번호를 입력해 주세요. (예: 010-1234-5678)')
+        return setError(t('auth.errPhone'))
     }
     setBusy(true)
     try {
@@ -54,7 +54,7 @@ export default function Auth() {
         navigate('/')
       }
     } catch (err) {
-      setError(authErr(err.message) || err.message || 'Something went wrong.')
+      setError(authErr(err.message) || err.message || t('auth.errGeneric'))
     } finally {
       setBusy(false)
     }
@@ -68,13 +68,14 @@ export default function Auth() {
             <span className="text-gold">BEAT</span>
             <span className="text-white">LINK</span>
           </h1>
-          <p className="text-muted text-sm mt-2">Where rappers, beatmakers & engineers link up</p>
+          <p className="text-muted text-sm mt-2">{t('auth.tagline')}</p>
         </div>
 
         <div className="flex rounded-full bg-surface border border-line p-1 mb-6">
           {['login', 'signup'].map((m) => (
             <button
               key={m}
+              type="button"
               onClick={() => {
                 setMode(m)
                 setError('')
@@ -83,58 +84,54 @@ export default function Auth() {
                 mode === m ? 'bg-gold text-ink' : 'text-muted hover:text-white'
               }`}
             >
-              {m === 'login' ? 'Log In' : 'Join'}
+              {m === 'login' ? t('auth.login') : t('auth.join')}
             </button>
           ))}
         </div>
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">ID</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">{t('auth.id')}</label>
             <input
               value={id}
               onChange={(e) => setId(e.target.value)}
               autoComplete="username"
               className="w-full rounded-lg bg-surface border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none transition-colors"
-              placeholder="Enter your ID"
+              placeholder={t('auth.idPlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">Password</label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">{t('auth.password')}</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               className="w-full rounded-lg bg-surface border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none transition-colors"
-              placeholder={mode === 'signup' ? '4+ characters' : 'Enter your password'}
+              placeholder={mode === 'signup' ? t('auth.pwPlaceholderSignup') : t('auth.pwPlaceholderLogin')}
             />
           </div>
 
           {mode === 'signup' && (
             <>
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1.5">
-                  본명 (한글)
-                </label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">{t('auth.legalName')}</label>
                 <input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full rounded-lg bg-surface border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none transition-colors"
-                  placeholder="예: 홍길동"
+                  placeholder={t('auth.legalNamePlaceholder')}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1.5">
-                  핸드폰 번호
-                </label>
+                <label className="block text-xs font-semibold text-muted mb-1.5">{t('auth.phone')}</label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   autoComplete="tel"
                   className="w-full rounded-lg bg-surface border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none transition-colors"
-                  placeholder="010-1234-5678"
+                  placeholder={t('auth.phonePlaceholder')}
                 />
               </div>
             </>
@@ -142,7 +139,7 @@ export default function Auth() {
 
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-semibold text-muted mb-2">Choose Your Lane</label>
+              <label className="block text-xs font-semibold text-muted mb-2">{t('auth.chooseLane')}</label>
               <div className="grid grid-cols-3 gap-2">
                 {ROLES.map((r) => (
                   <button
@@ -164,9 +161,9 @@ export default function Auth() {
                       className="text-sm font-bold"
                       style={{ color: role === r.id ? r.color : '#fff' }}
                     >
-                      {r.label}
+                      {t(`roles.${r.id}.label`)}
                     </div>
-                    <div className="text-[10px] text-muted mt-0.5">{r.sub}</div>
+                    <div className="text-[10px] text-muted mt-0.5">{t(`roles.${r.id}.sub`)}</div>
                   </button>
                 ))}
               </div>
@@ -184,13 +181,13 @@ export default function Auth() {
             disabled={busy}
             className="w-full rounded-lg bg-gold text-ink font-bold py-3 hover:bg-gold-hi transition-colors disabled:opacity-50"
           >
-            {busy ? 'Working...' : mode === 'login' ? 'Log In' : 'Create Account'}
+            {busy ? t('auth.working') : mode === 'login' ? t('auth.login') : t('auth.createAccount')}
           </button>
         </form>
 
         <p className="text-center text-xs text-muted/70 mt-6">
           <Link to="/" className="hover:text-gold transition-colors">
-            ← Back home
+            {t('auth.backHome')}
           </Link>
         </p>
       </div>

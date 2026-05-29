@@ -36,6 +36,8 @@ create table if not exists public.posts (
 );
 
 alter table public.posts add column if not exists recruit_count integer;
+alter table public.posts add column if not exists engineer_pay_krw integer;
+alter table public.posts add column if not exists engineer_mix_scope text;
 
 create table if not exists public.requests (
   id            uuid primary key default gen_random_uuid(),
@@ -87,7 +89,7 @@ create table if not exists public.items (
 -- RPCs (atomic operations) — SECURITY DEFINER so they bypass RLS safely
 -- ---------------------------------------------------------------------------
 
--- Close a deal: accept one requester, grant +2 credits to both sides.
+-- Close a deal: accept one requester and mark the post completed when slots are filled.
 -- Player/producer posts with recruit_count > 1 stay open until all slots are filled;
 -- applications (requests) are never capped — only greenlights count toward recruit_count.
 create or replace function public.close_deal(
@@ -127,9 +129,6 @@ begin
   set status = 'accepted'
   where post_id = p_post_id and requester_id = p_requester_id;
 
-  update public.profiles set credits = credits + 2 where id = v_author;
-  update public.profiles set credits = credits + 2 where id = p_requester_id;
-
   if v_board in ('player', 'producer') and coalesce(v_recruit, 1) > 1 then
     select count(*) into v_accepted
     from public.requests
@@ -154,36 +153,7 @@ begin
 end;
 $$;
 
--- Buy a beat: deduct 10 credits from the buyer and record the purchase.
-create or replace function public.buy_beat(
-  p_beat_id uuid,
-  p_buyer_id uuid
-) returns void
-language plpgsql
-security definer
-as $$
-declare
-  v_credits integer;
-  v_title text;
-  v_url text;
-begin
-  if exists (select 1 from public.purchases where buyer_id = p_buyer_id and beat_id = p_beat_id) then
-    raise exception 'You already own this beat.';
-  end if;
-
-  select credits into v_credits from public.profiles where id = p_buyer_id for update;
-  if v_credits is null or v_credits < 10 then
-    raise exception 'Not enough credits.';
-  end if;
-
-  select title, audio_url into v_title, v_url from public.beats where id = p_beat_id;
-
-  update public.profiles set credits = credits - 10 where id = p_buyer_id;
-
-  insert into public.purchases (beat_id, beat_title, audio_url, buyer_id)
-  values (p_beat_id, v_title, v_url, p_buyer_id);
-end;
-$$;
+drop function if exists public.buy_beat(uuid, uuid);
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security (production policies)
@@ -222,7 +192,6 @@ end $$;
 
 -- profiles: read your own (admin reads all); insert only your own row and you may
 -- NOT self-grant approval/admin; updates & deletes are admin-only.
--- (credits are changed only by the SECURITY DEFINER RPCs below.)
 drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles for select
   using (auth.uid() = id or public.is_admin());
@@ -295,7 +264,7 @@ drop policy if exists "beats_modify" on public.beats;
 create policy "beats_modify" on public.beats for all
   using (public.is_admin()) with check (public.is_admin());
 
--- purchases: you see your own (admin sees all); writes happen via the buy_beat RPC.
+-- purchases: legacy table (beat shop removed); admin-only access.
 drop policy if exists "purchases_select" on public.purchases;
 create policy "purchases_select" on public.purchases for select
   using (auth.uid() = buyer_id or public.is_admin());

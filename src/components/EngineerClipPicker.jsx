@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { decodeAudioFile, formatTime } from '../utils/audioClip'
+import { useLocale } from '../contexts/LocaleContext'
 
 function WaveformLayer({ peaks, variant = 'faded' }) {
   const faded = variant === 'faded'
@@ -24,6 +25,7 @@ function WaveformLayer({ peaks, variant = 'faded' }) {
 }
 
 export default function EngineerClipPicker({ file, clipSeconds, startSec, onStartChange }) {
+  const { t } = useLocale()
   const audioRef = useRef(null)
   const timelineRef = useRef(null)
   const stopTimer = useRef(null)
@@ -121,8 +123,8 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
   return (
     <div className="rounded-xl border border-teal/30 bg-teal/5 p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold text-teal uppercase tracking-wider">Select 10s Clip</p>
-        {loading && <span className="text-xs text-muted">Analyzing waveform…</span>}
+        <p className="text-xs font-bold text-teal uppercase tracking-wider">{t('clip.title')}</p>
+        {loading && <span className="text-xs text-muted">{t('clip.analyzing')}</span>}
       </div>
 
       {duration != null && peaks.length > 0 && (
@@ -182,7 +184,7 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
 
           <div>
             <label className="block text-xs font-semibold text-muted mb-1.5">
-              Clip start · {formatTime(startSec)} → {formatTime(endSec)}
+              {t('clip.clipStart')} · {formatTime(startSec)} → {formatTime(endSec)}
             </label>
             <input
               type="range"
@@ -196,13 +198,11 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
             />
             {maxStart <= 0 && duration <= clipSeconds && (
               <p className="text-xs text-muted mt-1">
-                Track is under {clipSeconds}s — the full file will be used.
+                {t('clip.underLength', { n: clipSeconds })}
               </p>
             )}
             {maxStart > 0 && (
-              <p className="text-xs text-muted/70 mt-1">
-                Click the waveform to jump, or drag the slider for fine control.
-              </p>
+              <p className="text-xs text-muted/70 mt-1">{t('clip.hint')}</p>
             )}
           </div>
 
@@ -212,10 +212,10 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
               onClick={playing ? stopPreview : playPreview}
               className="rounded-full bg-teal text-ink text-sm font-bold px-4 py-2 hover:opacity-90 transition-opacity"
             >
-              {playing ? 'Stop' : 'Preview Clip'}
+              {playing ? t('clip.stop') : t('clip.preview')}
             </button>
             <span className="text-xs text-muted">
-              {Math.round(endSec - startSec)}s excerpt selected
+              {t('clip.excerpt', { n: Math.round(endSec - startSec) })}
             </span>
           </div>
         </>

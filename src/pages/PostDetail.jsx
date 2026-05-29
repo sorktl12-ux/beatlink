@@ -2,15 +2,18 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, AUDIO_BUCKET } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { BOARDS, DEAL_REWARD, RECRUIT_BOARDS } from '../constants'
+import { useLocale } from '../contexts/LocaleContext'
+import { BOARDS, RECRUIT_BOARDS } from '../constants'
 import AudioPlayer from '../components/AudioPlayer'
 import EditPostForm from '../components/EditPostForm'
+import { fmtKrw } from '../utils/format'
 
 export default function PostDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user, profile, isAdmin } = useAuth()
-  const [post, setPost] = useState(undefined) // undefined=loading, null=not found
+  const { t } = useLocale()
+  const [post, setPost] = useState(undefined)
   const [requests, setRequests] = useState([])
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -52,9 +55,9 @@ export default function PostDetail() {
   if (post === null) {
     return (
       <div className="text-center py-32">
-        <p className="display text-3xl text-line">NOT FOUND</p>
+        <p className="display text-3xl text-line">{t('post.notFound')}</p>
         <Link to="/board/player" className="text-gold text-sm mt-4 inline-block">
-          ← Back to board
+          {t('post.backBoard')}
         </Link>
       </div>
     )
@@ -73,9 +76,11 @@ export default function PostDetail() {
   const acceptedCount = acceptedRequests.length
   const slotsRemaining = multiRecruit ? Math.max(0, recruitTotal - acceptedCount) : isCompleted ? 0 : 1
   const slotsFull = multiRecruit ? acceptedCount >= recruitTotal : isCompleted
+  const isEngineer = post.board === 'engineer'
+  const mixScopeLabel = post.engineer_mix_scope ? t(`mixScope.${post.engineer_mix_scope}`) : null
 
   const deletePost = async () => {
-    if (!window.confirm('Delete this post? This cannot be undone.')) return
+    if (!window.confirm(t('post.deleteConfirm'))) return
     setBusy(true)
     setError('')
     try {
@@ -86,7 +91,7 @@ export default function PostDetail() {
       if (err) throw err
       navigate(`/board/${post.board}`)
     } catch (err) {
-      setError(err.message || 'Delete failed')
+      setError(err.message || t('common.deleteFailed'))
       setBusy(false)
     }
   }
@@ -106,13 +111,12 @@ export default function PostDetail() {
       setMessage('')
       fetchRequests()
     } catch (err) {
-      setError(err.message || 'Request failed')
+      setError(err.message || t('common.requestFailed'))
     } finally {
       setBusy(false)
     }
   }
 
-  // Greenlight one contact -> lock the deal + grant +2 credits to both sides
   const acceptRequest = async (reqUser) => {
     setError('')
     setBusy(true)
@@ -126,7 +130,7 @@ export default function PostDetail() {
       fetchPost()
       fetchRequests()
     } catch (err) {
-      setError(err.message || 'Action failed')
+      setError(err.message || t('common.actionFailed'))
     } finally {
       setBusy(false)
     }
@@ -134,73 +138,95 @@ export default function PostDetail() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
-      <button
-        onClick={() => navigate(-1)}
-        className="text-muted hover:text-gold text-sm mb-6"
-      >
-        ← Back
+      <button onClick={() => navigate(-1)} className="text-muted hover:text-gold text-sm mb-6">
+        {t('post.back')}
       </button>
 
       {showEditForm && (
-        <EditPostForm
-          post={post}
-          onClose={() => setShowEditForm(false)}
-          onSaved={fetchPost}
-        />
+        <EditPostForm post={post} onClose={() => setShowEditForm(false)} onSaved={fetchPost} />
       )}
 
       <article>
-          <div className="flex items-center gap-3 mb-3">
-            <span
-              className={`text-[11px] font-bold tracking-widest uppercase ${isCompleted ? 'text-muted' : ''}`}
-              style={isCompleted ? undefined : { color: accent }}
-            >
-              {board?.label}
+        <div className="flex items-center gap-3 mb-3">
+          <span
+            className={`text-[11px] font-bold tracking-widest uppercase ${isCompleted ? 'text-muted' : ''}`}
+            style={isCompleted ? undefined : { color: accent }}
+          >
+            {t(`boards.${post.board}.label`)}
+          </span>
+          {isCompleted && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-line text-muted">
+              {t('post.collabClosed')}
             </span>
-            {isCompleted && (
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-line text-muted">
-                Deal Closed
-              </span>
-            )}
-            {multiRecruit && !isCompleted && (
+          )}
+          {multiRecruit && !isCompleted && (
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+              style={{ borderColor: `${accent}66`, color: accent }}
+            >
+              {t('post.slotsFilled', { total: recruitTotal, filled: acceptedCount })}
+            </span>
+          )}
+          {multiRecruit && isCompleted && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-line text-muted">
+              {t('post.recruited', { n: recruitTotal })}
+            </span>
+          )}
+        </div>
+        <h1
+          className={`text-3xl font-extrabold leading-tight ${
+            isCompleted ? 'text-muted' : 'text-white'
+          }`}
+        >
+          {post.title}
+        </h1>
+        <p className="text-muted text-sm mt-2">@{post.author_name}</p>
+
+        {isEngineer && (post.engineer_pay_krw != null || mixScopeLabel) && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {post.engineer_pay_krw != null && (
               <span
-                className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
-                style={{ borderColor: `${accent}66`, color: accent }}
+                className={`text-sm font-bold px-3 py-1.5 rounded-full border ${
+                  isCompleted
+                    ? 'border-line text-muted'
+                    : 'border-teal/40 bg-teal/10 text-teal'
+                }`}
               >
-                Recruiting {recruitTotal} · {acceptedCount}/{recruitTotal} filled
+                {fmtKrw(post.engineer_pay_krw)} {t('post.perTrack')}
               </span>
             )}
-            {multiRecruit && isCompleted && (
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-line text-muted">
-                Recruited {recruitTotal}
+            {mixScopeLabel && (
+              <span
+                className={`text-sm font-semibold px-3 py-1.5 rounded-full border ${
+                  isCompleted
+                    ? 'border-line text-muted'
+                    : 'border-teal/30 bg-surface text-white'
+                }`}
+              >
+                {mixScopeLabel}
               </span>
             )}
           </div>
-          <h1
-            className={`text-3xl font-extrabold leading-tight ${
-              isCompleted ? 'text-muted' : 'text-white'
+        )}
+
+        {post.description && (
+          <p
+            className={`leading-relaxed mt-5 whitespace-pre-wrap ${
+              isCompleted ? 'text-muted/80' : 'text-white/90'
             }`}
           >
-            {post.title}
-          </h1>
-          <p className="text-muted text-sm mt-2">@{post.author_name}</p>
+            {post.description}
+          </p>
+        )}
 
-          {post.description && (
-            <p
-              className={`leading-relaxed mt-5 whitespace-pre-wrap ${
-                isCompleted ? 'text-muted/80' : 'text-white/90'
-              }`}
-            >
-              {post.description}
-            </p>
-          )}
+        <div className="mt-6">
+          <AudioPlayer
+            src={post.audio_url}
+            label={isEngineer ? t('post.portfolioClip') : t('post.audioPreview')}
+          />
+        </div>
+      </article>
 
-          <div className="mt-6">
-            <AudioPlayer src={post.audio_url} label="Attached track" />
-          </div>
-        </article>
-
-      {/* Owner / admin controls — available even after the deal is closed */}
       {canManage && (
         <div className="mt-5 flex gap-3">
           <button
@@ -210,14 +236,14 @@ export default function PostDetail() {
             }}
             className="rounded-lg border border-line text-white text-sm font-bold px-4 py-2 hover:border-gold/50 transition-colors"
           >
-            Edit
+            {t('post.edit')}
           </button>
           <button
             onClick={deletePost}
             disabled={busy}
             className="rounded-lg border border-crimson/40 text-crimson text-sm font-bold px-4 py-2 hover:bg-crimson/10 transition-colors disabled:opacity-50"
           >
-            Delete
+            {t('post.delete')}
           </button>
         </div>
       )}
@@ -225,28 +251,25 @@ export default function PostDetail() {
       {isCompleted && (
         <div className="mt-8 rounded-xl border border-line bg-surface p-5 text-center">
           <p className="text-white font-bold">
-            ✓ Deal closed with{' '}
+            ✓ {t('post.collabLocked')}{' '}
             <span className="text-gold">
               {acceptedRequests.length > 0
                 ? acceptedRequests.map((r) => `@${r.requester_name}`).join(', ')
                 : `@${post.deal_requester_name}`}
             </span>
           </p>
-          <p className="text-muted text-sm mt-1">
-            {DEAL_REWARD} credits were granted to both sides per greenlight.
-          </p>
         </div>
       )}
+
       {error && (
         <p className="mt-6 text-crimson text-sm bg-crimson/10 border border-crimson/30 rounded-lg px-3 py-2">
           {error}
         </p>
       )}
 
-      {/* Request form shown to potential collaborators */}
       {!isCompleted && !isOwner && !isAdmin && (
         <section className="mt-8 rounded-2xl border border-line bg-surface p-5">
-          <h2 className="font-bold text-white mb-3">Send a Work Request</h2>
+          <h2 className="font-bold text-white mb-3">{t('post.applyTitle')}</h2>
           {myRequest ? (
             <p
               className={`text-sm rounded-lg px-3 py-2 border ${
@@ -255,9 +278,7 @@ export default function PostDetail() {
                   : 'text-emerald bg-emerald/10 border-emerald/30'
               }`}
             >
-              {myRequest.status === 'accepted'
-                ? 'You were greenlit for this collab.'
-                : 'Request sent. Waiting for the poster to greenlight you.'}
+              {myRequest.status === 'accepted' ? t('post.greenlit') : t('post.awaiting')}
             </p>
           ) : (
             <>
@@ -265,7 +286,7 @@ export default function PostDetail() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={3}
-                placeholder="Pitch your collab (optional)"
+                placeholder={t('post.pitchPlaceholder')}
                 className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none resize-none"
               />
               <button
@@ -273,27 +294,32 @@ export default function PostDetail() {
                 disabled={busy}
                 className="mt-3 rounded-lg bg-gold text-ink font-bold px-5 py-2.5 hover:bg-gold-hi transition-colors disabled:opacity-50"
               >
-                {busy ? 'Sending...' : 'Request Work'}
+                {busy ? t('post.sending') : t('post.submitApplication')}
               </button>
             </>
           )}
         </section>
       )}
 
-      {/* Request list shown to the poster */}
       {isOwner && (
         <section className="mt-8">
           <h2 className="font-bold text-white mb-3">
-            Work Requests <span className="text-muted">({requests.length})</span>
+            {t('post.incomingApps')}{' '}
+            <span className="text-muted">({requests.length})</span>
             {multiRecruit && (
               <span className="text-muted font-normal text-sm ml-2">
-                · {acceptedCount}/{recruitTotal} greenlit
-                {slotsRemaining > 0 && ` · ${slotsRemaining} slot${slotsRemaining > 1 ? 's' : ''} left`}
+                {slotsRemaining > 0
+                  ? t('post.slotsLeft', {
+                      filled: acceptedCount,
+                      total: recruitTotal,
+                      left: slotsRemaining,
+                    })
+                  : t('post.slotsGreenlit', { filled: acceptedCount, total: recruitTotal })}
               </span>
             )}
           </h2>
           {requests.length === 0 ? (
-            <p className="text-muted text-sm">No requests yet.</p>
+            <p className="text-muted text-sm">{t('post.noApps')}</p>
           ) : (
             <ul className="space-y-3">
               {requests.map((r) => (
@@ -309,11 +335,11 @@ export default function PostDetail() {
                   </div>
                   {r.status === 'accepted' ? (
                     <span className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full bg-gold/15 text-gold">
-                      Greenlit
+                      {t('post.greenlitBadge')}
                     </span>
                   ) : isCompleted || slotsFull ? (
                     <span className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full bg-line text-muted">
-                      Closed
+                      {t('post.closedBadge')}
                     </span>
                   ) : (
                     <button
@@ -321,7 +347,7 @@ export default function PostDetail() {
                       disabled={busy}
                       className="shrink-0 rounded-full bg-gold text-ink text-sm font-bold px-4 py-2 hover:bg-gold-hi transition-colors disabled:opacity-50"
                     >
-                      Greenlight
+                      {t('post.greenlight')}
                     </button>
                   )}
                 </li>

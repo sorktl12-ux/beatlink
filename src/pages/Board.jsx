@@ -3,19 +3,24 @@ import { useParams, Navigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { BOARDS, PAGE_SIZE } from '../constants'
 import PostListItem, { PostListHeader, PostListEmptySlot } from '../components/PostListItem'
+import BoardSearch from '../components/BoardSearch'
 import Pagination from '../components/Pagination'
 import NewPostForm from '../components/NewPostForm'
 import EditPostForm from '../components/EditPostForm'
 import { useAuth } from '../contexts/AuthContext'
+import { useLocale } from '../contexts/LocaleContext'
+import { filterBySearch } from '../utils/search'
 
 export default function Board() {
   const { board } = useParams()
   const { user, isAdmin, profile } = useAuth()
+  const { t } = useLocale()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingPost, setEditingPost] = useState(null)
   const [page, setPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const meta = BOARDS.find((b) => b.id === board)
 
@@ -34,6 +39,7 @@ export default function Board() {
     if (!meta) return
     setLoading(true)
     setPage(1)
+    setSearchQuery('')
     fetchPosts()
     const channel = supabase
       .channel(`posts:${board}`)
@@ -50,13 +56,22 @@ export default function Board() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [page])
 
-  const visible = useMemo(() => {
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery])
+
+  const sorted = useMemo(() => {
     return [...posts].sort((a, b) => {
       const rank = (p) => (p.status === 'completed' ? 1 : 0)
       if (rank(a) !== rank(b)) return rank(a) - rank(b)
       return new Date(b.created_at) - new Date(a.created_at)
     })
   }, [posts])
+
+  const visible = useMemo(
+    () => filterBySearch(sorted, searchQuery, ['title', 'description']),
+    [sorted, searchQuery]
+  )
 
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
 
@@ -88,14 +103,15 @@ export default function Board() {
       <div className="flex flex-wrap items-end justify-between gap-4 mb-8 pb-6 border-b border-line">
         <div>
           <h1 className="display text-4xl sm:text-5xl" style={{ color: meta.color }}>
-            {meta.label}
+            {t(`boards.${board}.label`)}
           </h1>
-          <p className="text-muted text-sm mt-1">
-            {meta.sub} · Work Board
+          <p className="text-muted text-sm mt-1 max-w-lg">
+            {t(`boards.${board}.sub`)}
+            <span className="text-muted/70"> · {t(`boards.${board}.tagline`)}</span>
             {!loading && visible.length > 0 && (
               <span className="text-muted/70">
                 {' '}
-                · {visible.length} post{visible.length !== 1 ? 's' : ''}
+                · {t('board.listings', { count: visible.length })}
               </span>
             )}
           </p>
@@ -105,15 +121,14 @@ export default function Board() {
             onClick={() => setShowForm(true)}
             className="rounded-full bg-gold text-ink font-bold px-5 py-2.5 hover:bg-gold-hi transition-colors"
           >
-            + Drop Work
+            {t('board.newListing')}
           </button>
         )}
       </div>
 
       {!isAdmin && profile && !profile.seller_approved && (
         <div className="mb-8 rounded-xl border border-orange/30 bg-orange/10 text-orange text-sm px-4 py-3">
-          Posting is restricted to admin-approved members. You can browse freely, but
-          uploading requires approval. Ask the admin to approve your account.
+          {t('board.approvalNotice')}
         </div>
       )}
 
@@ -123,9 +138,19 @@ export default function Board() {
         </div>
       ) : (
         <div className="rounded-xl border border-line bg-ink/40 overflow-hidden animate-fade-in">
+          <div className="px-3 sm:px-4 py-3 border-b border-line bg-surface/30">
+            <BoardSearch value={searchQuery} onChange={setSearchQuery} />
+            {searchQuery.trim() && (
+              <p className="text-muted text-xs mt-2">
+                {visible.length > 0
+                  ? t('search.results', { count: visible.length, query: searchQuery.trim() })
+                  : t('search.empty', { query: searchQuery.trim() })}
+              </p>
+            )}
+          </div>
           {visible.length === 0 && (
             <p className="text-center text-muted text-sm py-3 border-b border-line bg-surface/20">
-              No posts yet. Be the first to drop your work.
+              {searchQuery.trim() ? t('search.empty', { query: searchQuery.trim() }) : t('board.empty')}
             </p>
           )}
           <PostListHeader />

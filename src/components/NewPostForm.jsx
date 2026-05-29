@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { supabase, AUDIO_BUCKET, publicAudioUrl } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useLocale } from '../contexts/LocaleContext'
 import { BOARDS, RECRUIT_BOARDS, RECRUIT_MIN, RECRUIT_MAX } from '../constants'
 import Modal from './Modal'
 import EngineerClipPicker from './EngineerClipPicker'
+import EngineerOfferFields, { validateEngineerOffer } from './EngineerOfferFields'
 import { trimAudioFile } from '../utils/audioClip'
+import { formatDbError } from '../utils/dbError'
 
 export default function NewPostForm({ board, onClose, onCreated }) {
   const { user, profile } = useAuth()
+  const { t } = useLocale()
   const meta = BOARDS.find((b) => b.id === board)
   const isEngineer = board === 'engineer'
   const hasRecruitSlots = RECRUIT_BOARDS.includes(board)
@@ -17,6 +21,8 @@ export default function NewPostForm({ board, onClose, onCreated }) {
   const [recruitCount, setRecruitCount] = useState(1)
   const [file, setFile] = useState(null)
   const [clipStart, setClipStart] = useState(0)
+  const [payKrw, setPayKrw] = useState('')
+  const [mixScope, setMixScope] = useState('acapella')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,14 +35,18 @@ export default function NewPostForm({ board, onClose, onCreated }) {
   const submit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!title.trim()) return setError('Please enter a title.')
-    if (!file) return setError('Please attach an audio file.')
-    if (!file.type.startsWith('audio/')) return setError('Only audio files can be uploaded.')
+    if (!title.trim()) return setError(t('form.errTitle'))
+    if (!file) return setError(t('form.errAudio'))
+    if (!file.type.startsWith('audio/')) return setError(t('form.errAudioType'))
     if (hasRecruitSlots) {
       const n = Number(recruitCount)
       if (!Number.isInteger(n) || n < RECRUIT_MIN || n > RECRUIT_MAX) {
-        return setError(`Recruitment slots must be ${RECRUIT_MIN}–${RECRUIT_MAX}.`)
+        return setError(t('form.errRecruit', { min: RECRUIT_MIN, max: RECRUIT_MAX }))
       }
+    }
+    if (isEngineer) {
+      const offerErr = validateEngineerOffer(payKrw, mixScope, t)
+      if (offerErr) return setError(offerErr)
     }
 
     setBusy(true)
@@ -51,7 +61,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
           contentType = 'audio/wav'
         } catch (trimErr) {
           console.error(trimErr)
-          throw new Error('Could not trim audio. Try a different file format (MP3/WAV).')
+          throw new Error(t('form.errTrim'))
         }
       }
 
@@ -63,7 +73,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
       if (upErr) throw upErr
       const audioUrl = publicAudioUrl(path)
 
-      const { error: insErr } = await supabase.from('posts').insert({
+      const row = {
         board,
         author_id: user.id,
         author_name: profile?.username || 'anon',
@@ -72,61 +82,78 @@ export default function NewPostForm({ board, onClose, onCreated }) {
         audio_url: audioUrl,
         audio_path: path,
         status: 'approved',
-        recruit_count: hasRecruitSlots ? Number(recruitCount) : null,
-      })
+      }
+      if (hasRecruitSlots) row.recruit_count = Number(recruitCount)
+      if (isEngineer) {
+        row.engineer_pay_krw = Number(payKrw)
+        row.engineer_mix_scope = mixScope
+      }
+
+      const { error: insErr } = await supabase.from('posts').insert(row)
       if (insErr) throw insErr
       onCreated?.()
       onClose()
     } catch (err) {
       console.error(err)
-      setError(err.message || 'Upload failed.')
+      setError(formatDbError(err, t))
     } finally {
       setBusy(false)
     }
   }
 
+  const titlePh = ['player', 'producer', 'engineer'].includes(board)
+    ? t(`form.titlePh.${board}`)
+    : t('form.titlePh.default')
+  const detailsPh = ['player', 'producer', 'engineer'].includes(board)
+    ? t(`form.detailsPh.${board}`)
+    : t('form.detailsPh.default')
+
   return (
-    <Modal title={`Drop Your Work${meta ? ` · ${meta.label}` : ''}`} onClose={onClose}>
+    <Modal title={`${t('form.newListing')} · ${t(`boards.${board}.label`)}`} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <p className="text-xs text-emerald bg-emerald/10 border border-emerald/30 rounded-lg px-3 py-2">
-          Your post goes live on the board right away.
+          {t('form.liveNotice')}
         </p>
         {hasRecruitSlots && (
           <p className="text-xs text-gold bg-gold/10 border border-gold/30 rounded-lg px-3 py-2">
-            Set how many collaborators you want to recruit. Anyone can apply — there is no
-            limit on applications.
+            {t('form.recruitNotice')}
           </p>
         )}
         {isEngineer && (
           <p className="text-xs text-teal bg-teal/10 border border-teal/30 rounded-lg px-3 py-2">
-            Pick a <strong>10-second section</strong> from your mix/master — drag the slider,
-            preview it, then upload.
+            {t('form.engineerNotice')}
           </p>
         )}
         <div>
-          <label className="block text-xs font-semibold text-muted mb-1.5">Title</label>
+          <label className="block text-xs font-semibold text-muted mb-1.5">{t('form.title')}</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none"
-            placeholder={isEngineer ? 'e.g. Trap single — mix & master' : 'e.g. Looking for a trap hook collab'}
+            placeholder={titlePh}
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-muted mb-1.5">Details</label>
+          <label className="block text-xs font-semibold text-muted mb-1.5">{t('form.details')}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none resize-none"
-            placeholder="Describe the work (artist, genre, your role)."
+            placeholder={detailsPh}
           />
         </div>
+        {isEngineer && (
+          <EngineerOfferFields
+            payKrw={payKrw}
+            onPayChange={setPayKrw}
+            mixScope={mixScope}
+            onMixScopeChange={setMixScope}
+          />
+        )}
         {hasRecruitSlots && (
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">
-              Recruitment slots
-            </label>
+            <label className="block text-xs font-semibold text-muted mb-1.5">{t('form.collabSlots')}</label>
             <input
               type="number"
               min={RECRUIT_MIN}
@@ -136,14 +163,13 @@ export default function NewPostForm({ board, onClose, onCreated }) {
               className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white focus:border-gold focus:outline-none"
             />
             <p className="text-[11px] text-muted mt-1.5">
-              Number of collaborators to greenlight ({RECRUIT_MIN}–{RECRUIT_MAX}).
-              Unlimited people can still apply.
+              {t('form.collabSlotsHint', { min: RECRUIT_MIN, max: RECRUIT_MAX })}
             </p>
           </div>
         )}
         <div>
           <label className="block text-xs font-semibold text-muted mb-1.5">
-            {isEngineer ? 'Source Track' : 'Attach Audio'}
+            {isEngineer ? t('form.referenceTrack') : t('form.audio')}
           </label>
           <input
             type="file"
@@ -151,9 +177,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
             onChange={(e) => onFile(e.target.files?.[0] || null)}
             className="w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-gold file:text-ink file:font-bold file:px-4 file:py-2 file:cursor-pointer hover:file:bg-gold-hi"
           />
-          {file && !isEngineer && (
-            <p className="text-xs text-muted mt-1.5">{file.name}</p>
-          )}
+          {file && !isEngineer && <p className="text-xs text-muted mt-1.5">{file.name}</p>}
         </div>
 
         {isEngineer && file && (
@@ -175,7 +199,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
           disabled={busy || (isEngineer && !file)}
           className="w-full rounded-lg bg-gold text-ink font-bold py-3 hover:bg-gold-hi transition-colors disabled:opacity-50"
         >
-          {busy ? (isEngineer ? 'Trimming & uploading…' : 'Uploading...') : 'Upload'}
+          {busy ? (isEngineer ? t('form.processing') : t('form.uploading')) : t('form.publish')}
         </button>
       </form>
     </Modal>

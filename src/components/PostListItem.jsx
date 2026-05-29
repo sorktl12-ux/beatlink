@@ -1,16 +1,22 @@
 import { Link } from 'react-router-dom'
 import { POST_STATUS, boardMeta, RECRUIT_BOARDS } from '../constants'
-import { fmtDate } from '../utils/format'
+import { useLocale } from '../contexts/LocaleContext'
+import { fmtDate, fmtKrw } from '../utils/format'
 
 const ROW =
   'grid grid-cols-[2.5rem_minmax(0,1fr)] sm:grid-cols-[3rem_minmax(0,1fr)_5.5rem_5.5rem_4.5rem] items-center gap-x-3 gap-y-1 px-3 sm:px-4 py-3 min-h-[3.25rem] border-b border-line'
 
 export default function PostListItem({ post, rowNum, currentUserId, isAdmin, onEdit }) {
+  const { t } = useLocale()
   const board = boardMeta(post.board)
   const isDone = post.status === 'completed'
-  const status = POST_STATUS[post.status] || POST_STATUS.approved
+  const statusKey = POST_STATUS[post.status] ? post.status : 'approved'
+  const statusCls = POST_STATUS[statusKey].cls
+  const statusText = t(`status.${statusKey}`)
   const showRecruit = RECRUIT_BOARDS.includes(post.board) && post.recruit_count > 1
   const recruitCls = post.board === 'player' ? 'text-gold' : 'text-violet'
+  const isEngineer = post.board === 'engineer'
+  const mixScopeLabel = post.engineer_mix_scope ? t(`mixScope.${post.engineer_mix_scope}`) : null
   const canManage = currentUserId && (post.author_id === currentUserId || isAdmin)
 
   const titleEl = (
@@ -44,7 +50,7 @@ export default function PostListItem({ post, rowNum, currentUserId, isAdmin, onE
               }}
               className="shrink-0 text-[10px] sm:text-xs font-bold text-muted hover:text-gold border border-line hover:border-gold/40 rounded px-1.5 sm:px-2 py-0.5 transition-colors"
             >
-              Edit
+              {t('board.edit')}
             </button>
           )}
         </div>
@@ -53,7 +59,19 @@ export default function PostListItem({ post, rowNum, currentUserId, isAdmin, onE
           {showRecruit && (
             <>
               <span>·</span>
-              <span className={recruitCls}>Recruit {post.recruit_count}</span>
+              <span className={recruitCls}>{t('board.recruit', { n: post.recruit_count })}</span>
+            </>
+          )}
+          {isEngineer && post.engineer_pay_krw != null && (
+            <>
+              <span>·</span>
+              <span className="text-teal">{fmtKrw(post.engineer_pay_krw)}</span>
+            </>
+          )}
+          {isEngineer && mixScopeLabel && (
+            <>
+              <span>·</span>
+              <span className="text-muted">{mixScopeLabel}</span>
             </>
           )}
           <span>·</span>
@@ -67,18 +85,24 @@ export default function PostListItem({ post, rowNum, currentUserId, isAdmin, onE
         {fmtDate(post.created_at)}
         {showRecruit && (
           <span className={`block text-[10px] mt-0.5 ${recruitCls}`}>
-            Recruit {post.recruit_count}
+            {t('board.recruit', { n: post.recruit_count })}
           </span>
+        )}
+        {isEngineer && post.engineer_pay_krw != null && (
+          <span className="block text-[10px] text-teal mt-0.5">{fmtKrw(post.engineer_pay_krw)}</span>
+        )}
+        {isEngineer && mixScopeLabel && (
+          <span className="block text-[10px] text-muted mt-0.5 truncate">{mixScopeLabel}</span>
         )}
       </span>
 
       <div className="hidden sm:flex items-center justify-end gap-1.5">
         {post.audio_url && (
-          <span className="text-[10px] text-gold font-semibold" title="Track attached">
+          <span className="text-[10px] text-gold font-semibold" title="Audio">
             ♪
           </span>
         )}
-        <span className={`text-[11px] font-bold ${status.cls}`}>{status.label}</span>
+        <span className={`text-[11px] font-bold ${statusCls}`}>{statusText}</span>
       </div>
 
       <div className="sm:hidden col-start-2 flex items-center gap-2">
@@ -87,7 +111,7 @@ export default function PostListItem({ post, rowNum, currentUserId, isAdmin, onE
           style={{ backgroundColor: isDone ? '#6b7280' : board.color }}
           aria-hidden
         />
-        <span className={`text-[10px] font-bold ${status.cls}`}>{status.label}</span>
+        <span className={`text-[10px] font-bold ${statusCls}`}>{statusText}</span>
       </div>
     </div>
   )
@@ -97,10 +121,7 @@ export default function PostListItem({ post, rowNum, currentUserId, isAdmin, onE
 
 export function PostListEmptySlot() {
   return (
-    <div
-      className={`${ROW} bg-surface/[0.03]`}
-      aria-hidden
-    >
+    <div className={`${ROW} bg-surface/[0.03]`} aria-hidden>
       <span className="text-xs sm:text-sm text-line/40 text-center select-none">·</span>
       <span className="hidden sm:block sm:col-span-4 border-b border-dashed border-line/25" />
       <span className="sm:hidden col-start-2 border-b border-dashed border-line/25" />
@@ -109,13 +130,14 @@ export function PostListEmptySlot() {
 }
 
 export function PostListHeader() {
+  const { t } = useLocale()
   return (
     <div className="hidden sm:grid grid-cols-[3rem_minmax(0,1fr)_5.5rem_5.5rem_4.5rem] gap-x-3 px-4 py-2 border-y border-line bg-surface/50 text-[10px] font-bold tracking-widest uppercase text-muted">
-      <span className="text-center">#</span>
-      <span>Title</span>
-      <span>Author</span>
-      <span>Date</span>
-      <span className="text-right">Status</span>
+      <span className="text-center">{t('board.listHeader.num')}</span>
+      <span>{t('board.listHeader.title')}</span>
+      <span>{t('board.listHeader.author')}</span>
+      <span>{t('board.listHeader.date')}</span>
+      <span className="text-right">{t('board.listHeader.status')}</span>
     </div>
   )
 }
