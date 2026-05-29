@@ -38,7 +38,7 @@ export default function Home() {
 
       {/* BOARD ENTRIES */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 -mt-2">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
           {[
             { to: '/board/player', label: 'PLAYER', sub: 'Rappers / Vocalists', color: '#FFD700' },
             { to: '/board/producer', label: 'PRODUCER', sub: 'Beatmakers', color: '#CC44FF' },
@@ -47,19 +47,21 @@ export default function Home() {
             <Link
               key={b.to}
               to={b.to}
-              className="group relative overflow-hidden rounded-2xl border border-line bg-surface px-6 py-8 transition-all hover:-translate-y-1"
+              className="group relative block min-w-0 rounded-2xl border border-line bg-surface transition-all hover:-translate-y-1"
             >
-              <span
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-1 transition-all duration-300 group-hover:h-full group-hover:opacity-10"
-                style={{ backgroundColor: b.color }}
-              />
-              <div className="relative">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                 <span
-                  className="block h-1 w-10 rounded-full mb-6"
+                  className="absolute inset-x-0 bottom-0 h-1 transition-all duration-300 group-hover:h-full group-hover:opacity-10"
+                  style={{ backgroundColor: b.color }}
+                />
+              </div>
+              <div className="relative px-5 sm:px-6 py-7 sm:py-8">
+                <span
+                  className="block h-1 w-10 rounded-full mb-5 sm:mb-6"
                   style={{ backgroundColor: b.color }}
                 />
                 <h3
-                  className="display text-4xl sm:text-5xl leading-none text-white transition-colors"
+                  className="display text-4xl sm:text-[1.95rem] md:text-3xl lg:text-[2.35rem] xl:text-5xl leading-[1.05] break-words"
                   style={{ color: b.color }}
                 >
                   {b.label}

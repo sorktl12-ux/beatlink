@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { BrandMark } from './BrandMark'
 
 const navItem = ({ isActive }) =>
   `px-3 py-2 text-sm font-semibold tracking-wide transition-colors ${
@@ -18,9 +19,8 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ink/85 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-2">
-        <Link to="/" className="flex items-center gap-2 mr-2">
-          <span className="display text-2xl text-gold leading-none">BEAT</span>
-          <span className="display text-2xl text-white leading-none">LINK</span>
+        <Link to="/" className="mr-2 hover:opacity-90 transition-opacity">
+          <BrandMark size="md" />
         </Link>
 
         <nav className="hidden sm:flex items-center ml-2">
@@ -37,7 +37,7 @@ export default function Navbar() {
             Market
           </NavLink>
           <NavLink to="/shop" className={navItem}>
-            Beat Shop
+            beatshop
           </NavLink>
           {isAdmin && (
             <NavLink to="/admin" className={navItem}>
@@ -101,7 +101,7 @@ export default function Navbar() {
           Market
         </NavLink>
         <NavLink to="/shop" className={navItem}>
-          Shop
+          beatshop
         </NavLink>
         {isAdmin && (
           <NavLink to="/admin" className={navItem}>
