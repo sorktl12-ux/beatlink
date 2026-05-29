@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Trim — Vercel env vars sometimes include accidental spaces/tabs (breaks fetch headers).
-const url = String(import.meta.env.VITE_SUPABASE_URL || '').trim()
-const anonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
+// Strip accidental spaces/tabs/newlines from Vercel env vars (breaks fetch headers).
+function cleanEnv(v) {
+  return String(v ?? '').trim().replace(/[\r\n\t]/g, '')
+}
+
+const url = cleanEnv(import.meta.env.VITE_SUPABASE_URL)
+const anonKey = cleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 // True only when real config is present (false for placeholder/empty values)
 export const supabaseConfigured = Boolean(
