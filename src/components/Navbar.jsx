@@ -2,14 +2,23 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import BrandMark from './BrandMark'
 
-const navItem = ({ isActive }) =>
+const NAV_LINKS = [
+  { to: '/board/player', label: 'Player', activeCls: 'text-gold' },
+  { to: '/board/producer', label: 'Producer', activeCls: 'text-violet' },
+  { to: '/board/engineer', label: 'Engineer', activeCls: 'text-teal' },
+  { to: '/shop', label: 'Beatshop', activeCls: 'text-gold' },
+  { to: '/market', label: 'Market', activeCls: 'text-emerald' },
+  { to: '/admin', label: 'Admin', activeCls: 'text-gold', adminOnly: true },
+]
+
+const navItem = (activeCls) => ({ isActive }) =>
   `px-1.5 lg:px-2 py-2 text-[1.05rem] lg:text-[1.225rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
-    isActive ? 'text-gold' : 'text-muted hover:text-white'
+    isActive ? activeCls : 'text-muted hover:text-white'
   }`
 
-const mobileNavItem = ({ isActive }) =>
+const mobileNavItem = (activeCls) => ({ isActive }) =>
   `shrink-0 px-2 py-1.5 text-[1.05rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
-    isActive ? 'text-gold' : 'text-muted hover:text-white'
+    isActive ? activeCls : 'text-muted hover:text-white'
   }`
 
 export default function Navbar() {
@@ -29,26 +38,11 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden sm:flex items-center gap-0 ml-0.5 shrink-0">
-          <NavLink to="/board/player" className={navItem}>
-            Player
-          </NavLink>
-          <NavLink to="/board/producer" className={navItem}>
-            Producer
-          </NavLink>
-          <NavLink to="/board/engineer" className={navItem}>
-            Engineer
-          </NavLink>
-          <NavLink to="/shop" className={navItem}>
-            Beatshop
-          </NavLink>
-          <NavLink to="/market" className={navItem}>
-            Market
-          </NavLink>
-          {isAdmin && (
-            <NavLink to="/admin" className={navItem}>
-              Admin
+          {NAV_LINKS.filter((link) => !link.adminOnly || isAdmin).map((link) => (
+            <NavLink key={link.to} to={link.to} className={navItem(link.activeCls)}>
+              {link.label}
             </NavLink>
-          )}
+          ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
@@ -94,26 +88,11 @@ export default function Navbar() {
 
       {/* mobile board links — horizontal scroll instead of clipping */}
       <nav className="sm:hidden flex items-center gap-0 overflow-x-auto flex-nowrap scrollbar-none border-t border-line px-2 py-1.5">
-        <NavLink to="/board/player" className={mobileNavItem}>
-          Player
-        </NavLink>
-        <NavLink to="/board/producer" className={mobileNavItem}>
-          Producer
-        </NavLink>
-        <NavLink to="/board/engineer" className={mobileNavItem}>
-          Engineer
-        </NavLink>
-        <NavLink to="/shop" className={mobileNavItem}>
-          Beatshop
-        </NavLink>
-        <NavLink to="/market" className={mobileNavItem}>
-          Market
-        </NavLink>
-        {isAdmin && (
-          <NavLink to="/admin" className={mobileNavItem}>
-            Admin
+        {NAV_LINKS.filter((link) => !link.adminOnly || isAdmin).map((link) => (
+          <NavLink key={link.to} to={link.to} className={mobileNavItem(link.activeCls)}>
+            {link.label}
           </NavLink>
-        )}
+        ))}
       </nav>
     </header>
   )
