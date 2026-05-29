@@ -33,11 +33,11 @@ export default function Navbar() {
           <NavLink to="/board/engineer" className={navItem}>
             Engineer
           </NavLink>
+          <NavLink to="/shop" className={navItem}>
+            Beatshop
+          </NavLink>
           <NavLink to="/market" className={navItem}>
             Market
-          </NavLink>
-          <NavLink to="/shop" className={navItem}>
-            beatshop
           </NavLink>
           {isAdmin && (
             <NavLink to="/admin" className={navItem}>
@@ -97,11 +97,11 @@ export default function Navbar() {
         <NavLink to="/board/engineer" className={navItem}>
           Engineer
         </NavLink>
+        <NavLink to="/shop" className={navItem}>
+          Beatshop
+        </NavLink>
         <NavLink to="/market" className={navItem}>
           Market
-        </NavLink>
-        <NavLink to="/shop" className={navItem}>
-          beatshop
         </NavLink>
         {isAdmin && (
           <NavLink to="/admin" className={navItem}>
