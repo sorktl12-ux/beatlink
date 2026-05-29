@@ -1,10 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { decodeAudioFile, formatTime } from '../utils/audioClip'
 
+function WaveformLayer({ peaks, variant = 'faded' }) {
+  const faded = variant === 'faded'
+  return (
+    <div className="flex items-center h-full w-full gap-px px-0.5">
+      {peaks.map((peak, i) => {
+        const h = Math.max(6, peak * 96)
+        return (
+          <div key={i} className="flex-1 flex items-center justify-center min-w-0 h-full">
+            <div
+              className={`w-full rounded-full ${faded ? 'bg-teal/40' : 'bg-teal'}`}
+              style={{
+                height: `${h}%`,
+                opacity: faded ? 0.35 + peak * 0.25 : 0.55 + peak * 0.45,
+              }}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function EngineerClipPicker({ file, clipSeconds, startSec, onStartChange }) {
   const audioRef = useRef(null)
+  const timelineRef = useRef(null)
   const stopTimer = useRef(null)
   const [duration, setDuration] = useState(null)
+  const [peaks, setPeaks] = useState([])
   const [loading, setLoading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
   const [playing, setPlaying] = useState(false)
@@ -15,6 +39,7 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
   useEffect(() => {
     if (!file) {
       setDuration(null)
+      setPeaks([])
       setPreviewUrl('')
       return
     }
@@ -24,14 +49,18 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
     setPreviewUrl(url)
 
     decodeAudioFile(file)
-      .then(({ duration: d }) => {
+      .then(({ duration: d, peaks: p }) => {
         if (active) {
           setDuration(d)
+          setPeaks(p)
           onStartChange(0)
         }
       })
       .catch(() => {
-        if (active) setDuration(null)
+        if (active) {
+          setDuration(null)
+          setPeaks([])
+        }
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -70,28 +99,84 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
     }, (endSec - startSec) * 1000)
   }
 
+  const seekFromTimeline = (clientX) => {
+    if (!timelineRef.current || duration == null || maxStart <= 0) return
+    const rect = timelineRef.current.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    const centered = ratio * duration - clipSeconds / 2
+    onStartChange(Math.max(0, Math.min(maxStart, centered)))
+  }
+
+  const handleTimelineClick = (e) => {
+    seekFromTimeline(e.clientX)
+  }
+
   if (!file) return null
 
+  const startPct = duration ? (startSec / duration) * 100 : 0
   const widthPct = duration ? ((endSec - startSec) / duration) * 100 : 100
+  const innerWidthPct = widthPct > 0 ? (100 / widthPct) * 100 : 100
+  const innerLeftPct = widthPct > 0 ? -(startPct / widthPct) * 100 : 0
 
   return (
     <div className="rounded-xl border border-teal/30 bg-teal/5 p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-teal uppercase tracking-wider">Select 10s Clip</p>
-        {loading && <span className="text-xs text-muted">Loading…</span>}
+        {loading && <span className="text-xs text-muted">Analyzing waveform…</span>}
       </div>
 
-      {duration != null && (
+      {duration != null && peaks.length > 0 && (
         <>
-          {/* Timeline */}
-          <div className="relative h-10 rounded-lg bg-ink border border-line overflow-hidden">
+          {/* Waveform timeline */}
+          <div
+            ref={timelineRef}
+            role="slider"
+            aria-label="Clip start position"
+            aria-valuemin={0}
+            aria-valuemax={maxStart}
+            aria-valuenow={Math.min(startSec, maxStart)}
+            tabIndex={0}
+            onClick={handleTimelineClick}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? 1 : 0.5
+              if (e.key === 'ArrowLeft') onStartChange(Math.max(0, startSec - step))
+              if (e.key === 'ArrowRight') onStartChange(Math.min(maxStart, startSec + step))
+            }}
+            className="relative h-24 rounded-lg bg-ink border border-line overflow-hidden cursor-crosshair select-none"
+          >
+            {/* Faded full-track waveform */}
             <div
-              className="absolute inset-y-0 bg-teal/20 border-x-2 border-teal"
-              style={{ left: `${(startSec / duration) * 100}%`, width: `${widthPct}%` }}
+              className="absolute inset-0 pointer-events-none"
+              style={{ filter: 'blur(1.2px)' }}
+            >
+              <WaveformLayer peaks={peaks} variant="faded" />
+            </div>
+
+            {/* Edge fade vignette */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(90deg, rgba(10,10,10,0.55) 0%, transparent 12%, transparent 88%, rgba(10,10,10,0.55) 100%)',
+              }}
             />
-            <div className="absolute inset-0 flex items-center px-2 text-[10px] text-muted pointer-events-none">
+
+            {/* Selected region — sharper waveform */}
+            <div
+              className="absolute inset-y-0 overflow-hidden border-x-2 border-teal/90 bg-teal/[0.07] shadow-[inset_0_0_24px_rgba(0,206,209,0.12)]"
+              style={{ left: `${startPct}%`, width: `${widthPct}%` }}
+            >
+              <div
+                className="absolute top-0 bottom-0 pointer-events-none"
+                style={{ width: `${innerWidthPct}%`, left: `${innerLeftPct}%` }}
+              >
+                <WaveformLayer peaks={peaks} variant="bright" />
+              </div>
+            </div>
+
+            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-2 pb-1 text-[10px] text-muted/80 pointer-events-none">
               <span>0:00</span>
-              <span className="ml-auto">{formatTime(duration)}</span>
+              <span>{formatTime(duration)}</span>
             </div>
           </div>
 
@@ -112,6 +197,11 @@ export default function EngineerClipPicker({ file, clipSeconds, startSec, onStar
             {maxStart <= 0 && duration <= clipSeconds && (
               <p className="text-xs text-muted mt-1">
                 Track is under {clipSeconds}s — the full file will be used.
+              </p>
+            )}
+            {maxStart > 0 && (
+              <p className="text-xs text-muted/70 mt-1">
+                Click the waveform to jump, or drag the slider for fine control.
               </p>
             )}
           </div>

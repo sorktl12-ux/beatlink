@@ -40,12 +40,39 @@ function encodeWav(audioBuffer) {
   return new Blob([buffer], { type: 'audio/wav' })
 }
 
+/** Peak amplitudes (0–1) for waveform visualization. */
+export function extractWaveformPeaks(audioBuffer, barCount = 220) {
+  const channels = audioBuffer.numberOfChannels
+  const length = audioBuffer.length
+  const samplesPerBar = Math.max(1, Math.floor(length / barCount))
+  const peaks = []
+
+  for (let i = 0; i < barCount; i++) {
+    const start = i * samplesPerBar
+    const end = Math.min(start + samplesPerBar, length)
+    let peak = 0
+    for (let j = start; j < end; j++) {
+      for (let ch = 0; ch < channels; ch++) {
+        peak = Math.max(peak, Math.abs(audioBuffer.getChannelData(ch)[j]))
+      }
+    }
+    peaks.push(peak)
+  }
+
+  const max = Math.max(...peaks, 0.001)
+  return peaks.map((p) => p / max)
+}
+
 export async function decodeAudioFile(file) {
   const arrayBuffer = await file.arrayBuffer()
   const ctx = new AudioContext()
   try {
     const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0))
-    return { audioBuffer, duration: audioBuffer.duration }
+    return {
+      audioBuffer,
+      duration: audioBuffer.duration,
+      peaks: extractWaveformPeaks(audioBuffer),
+    }
   } finally {
     await ctx.close()
   }
