@@ -9,7 +9,8 @@ export GIT_SSH_COMMAND="ssh -i ${HOME}/.ssh/id_ed25519_beatlink -o IdentitiesOnl
 REMOTE="${1:-origin}"
 BRANCH="${2:-main}"
 
-if ! ssh -i "${HOME}/.ssh/id_ed25519_beatlink" -o IdentitiesOnly=yes -o BatchMode=yes -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+auth_msg=$(ssh -i "${HOME}/.ssh/id_ed25519_beatlink" -o IdentitiesOnly=yes -o BatchMode=yes -T git@github.com 2>&1 || true)
+if ! echo "$auth_msg" | grep -q "successfully authenticated"; then
   echo "✗ GitHub SSH 인증 실패"
   echo ""
   echo "한 번만 설정하면 이후 자동 push가 됩니다:"
