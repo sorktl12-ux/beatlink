@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { ROLES } from '../constants'
 
@@ -27,8 +27,10 @@ export default function Auth() {
   const [role, setRole] = useState('player')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const { login, signup } = useAuth()
+  const { login, signup, isAuthed, loading } = useAuth()
   const navigate = useNavigate()
+
+  if (!loading && isAuthed) return <Navigate to="/" replace />
 
   const submit = async (e) => {
     e.preventDefault()
@@ -45,11 +47,11 @@ export default function Auth() {
     setBusy(true)
     try {
       if (mode === 'login') {
-        const res = await login({ id, password })
-        navigate(res.admin ? '/admin' : '/board/player')
+        await login({ id, password })
+        navigate('/')
       } else {
         await signup({ id, password, role, fullName: fullName.trim(), phone: phone.trim() })
-        navigate('/board/player')
+        navigate('/')
       }
     } catch (err) {
       setError(authErr(err.message) || err.message || 'Something went wrong.')

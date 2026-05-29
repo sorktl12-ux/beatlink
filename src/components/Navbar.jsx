@@ -1,14 +1,14 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { BrandMark } from './BrandMark'
+import BrandMark from './BrandMark'
 
 const navItem = ({ isActive }) =>
-  `px-3 py-2 text-sm font-semibold tracking-wide transition-colors ${
+  `px-1.5 lg:px-2 py-2 text-[1.05rem] lg:text-[1.225rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
     isActive ? 'text-gold' : 'text-muted hover:text-white'
   }`
 
 const mobileNavItem = ({ isActive }) =>
-  `shrink-0 px-2.5 py-1.5 text-xs font-semibold tracking-wide whitespace-nowrap transition-colors ${
+  `shrink-0 px-2 py-1.5 text-[1.05rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
     isActive ? 'text-gold' : 'text-muted hover:text-white'
   }`
 
@@ -23,12 +23,12 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ink/85 backdrop-blur-md">
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 min-h-16 flex items-center gap-1 sm:gap-2 min-w-0">
-        <Link to="/" className="shrink min-w-0 mr-1 sm:mr-2 hover:opacity-90 transition-opacity">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 min-h-16 flex items-center gap-1 min-w-0">
+        <Link to="/" className="shrink-0 mr-0.5 sm:mr-1 hover:opacity-90 transition-opacity">
           <BrandMark size="md" />
         </Link>
 
-        <nav className="hidden sm:flex items-center ml-2 shrink-0">
+        <nav className="hidden sm:flex items-center gap-0 ml-0.5 shrink-0">
           <NavLink to="/board/player" className={navItem}>
             Player
           </NavLink>
@@ -51,7 +51,7 @@ export default function Navbar() {
           )}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
           {isAuthed ? (
             <>
               {!isAdmin && profile && (
@@ -93,7 +93,7 @@ export default function Navbar() {
       </div>
 
       {/* mobile board links — horizontal scroll instead of clipping */}
-      <nav className="sm:hidden flex items-center gap-0.5 overflow-x-auto flex-nowrap scrollbar-none border-t border-line px-2 py-1.5">
+      <nav className="sm:hidden flex items-center gap-0 overflow-x-auto flex-nowrap scrollbar-none border-t border-line px-2 py-1.5">
         <NavLink to="/board/player" className={mobileNavItem}>
           Player
         </NavLink>

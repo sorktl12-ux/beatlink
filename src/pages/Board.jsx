@@ -5,14 +5,16 @@ import { BOARDS, PAGE_SIZE } from '../constants'
 import PostListItem, { PostListHeader, PostListEmptySlot } from '../components/PostListItem'
 import Pagination from '../components/Pagination'
 import NewPostForm from '../components/NewPostForm'
+import EditPostForm from '../components/EditPostForm'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Board() {
   const { board } = useParams()
-  const { isAdmin, profile } = useAuth()
+  const { user, isAdmin, profile } = useAuth()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingPost, setEditingPost] = useState(null)
   const [page, setPage] = useState(1)
 
   const meta = BOARDS.find((b) => b.id === board)
@@ -67,6 +69,16 @@ export default function Board() {
     return visible.slice(start, start + PAGE_SIZE)
   }, [visible, page])
 
+  const slots = useMemo(
+    () =>
+      Array.from({ length: PAGE_SIZE }, (_, i) => ({
+        post: paged[i] ?? null,
+        rowNum: paged[i] ? visible.length - ((page - 1) * PAGE_SIZE + i) : null,
+        key: paged[i]?.id ?? `empty-${page}-${i}`,
+      })),
+    [paged, visible.length, page]
+  )
+
   if (!meta) return <Navigate to="/board/player" replace />
 
   const canPost = isAdmin || profile?.seller_approved
@@ -118,19 +130,20 @@ export default function Board() {
           )}
           <PostListHeader />
           <div>
-            {Array.from({ length: PAGE_SIZE }, (_, i) => {
-              const post = paged[i]
-              if (post) {
-                return (
-                  <PostListItem
-                    key={post.id}
-                    post={post}
-                    rowNum={visible.length - ((page - 1) * PAGE_SIZE + i)}
-                  />
-                )
-              }
-              return <PostListEmptySlot key={`empty-${page}-${i}`} />
-            })}
+            {slots.map(({ post, rowNum, key }) =>
+              post ? (
+                <PostListItem
+                  key={key}
+                  post={post}
+                  rowNum={rowNum}
+                  currentUserId={user?.id}
+                  isAdmin={isAdmin}
+                  onEdit={setEditingPost}
+                />
+              ) : (
+                <PostListEmptySlot key={key} />
+              )
+            )}
           </div>
           <div className="border-t border-line px-2 py-3 sm:py-4">
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -146,6 +159,13 @@ export default function Board() {
             setPage(1)
             fetchPosts()
           }}
+        />
+      )}
+      {editingPost && (
+        <EditPostForm
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+          onSaved={fetchPosts}
         />
       )}
     </main>

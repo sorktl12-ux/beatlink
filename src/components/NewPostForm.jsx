@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { supabase, AUDIO_BUCKET, publicAudioUrl } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { BOARDS } from '../constants'
+import { BOARDS, RECRUIT_BOARDS, RECRUIT_MIN, RECRUIT_MAX } from '../constants'
 import Modal from './Modal'
 import EngineerClipPicker from './EngineerClipPicker'
 import { trimAudioFile } from '../utils/audioClip'
-
-const CLIP_SECONDS = 10
 
 export default function NewPostForm({ board, onClose, onCreated }) {
   const { user, profile } = useAuth()
   const meta = BOARDS.find((b) => b.id === board)
   const isEngineer = board === 'engineer'
+  const hasRecruitSlots = RECRUIT_BOARDS.includes(board)
+  const clipSeconds = meta?.clipSeconds ?? 10
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [recruitCount, setRecruitCount] = useState(1)
   const [file, setFile] = useState(null)
   const [clipStart, setClipStart] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -31,6 +32,12 @@ export default function NewPostForm({ board, onClose, onCreated }) {
     if (!title.trim()) return setError('Please enter a title.')
     if (!file) return setError('Please attach an audio file.')
     if (!file.type.startsWith('audio/')) return setError('Only audio files can be uploaded.')
+    if (hasRecruitSlots) {
+      const n = Number(recruitCount)
+      if (!Number.isInteger(n) || n < RECRUIT_MIN || n > RECRUIT_MAX) {
+        return setError(`Recruitment slots must be ${RECRUIT_MIN}–${RECRUIT_MAX}.`)
+      }
+    }
 
     setBusy(true)
     try {
@@ -38,9 +45,8 @@ export default function NewPostForm({ board, onClose, onCreated }) {
       let contentType = file.type
 
       if (isEngineer) {
-        setError('')
         try {
-          const blob = await trimAudioFile(file, clipStart, CLIP_SECONDS)
+          const blob = await trimAudioFile(file, clipStart, clipSeconds)
           uploadFile = new File([blob], 'clip.wav', { type: 'audio/wav' })
           contentType = 'audio/wav'
         } catch (trimErr) {
@@ -66,6 +72,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
         audio_url: audioUrl,
         audio_path: path,
         status: 'approved',
+        recruit_count: hasRecruitSlots ? Number(recruitCount) : null,
       })
       if (insErr) throw insErr
       onCreated?.()
@@ -84,6 +91,12 @@ export default function NewPostForm({ board, onClose, onCreated }) {
         <p className="text-xs text-emerald bg-emerald/10 border border-emerald/30 rounded-lg px-3 py-2">
           Your post goes live on the board right away.
         </p>
+        {hasRecruitSlots && (
+          <p className="text-xs text-gold bg-gold/10 border border-gold/30 rounded-lg px-3 py-2">
+            Set how many collaborators you want to recruit. Anyone can apply — there is no
+            limit on applications.
+          </p>
+        )}
         {isEngineer && (
           <p className="text-xs text-teal bg-teal/10 border border-teal/30 rounded-lg px-3 py-2">
             Pick a <strong>10-second section</strong> from your mix/master — drag the slider,
@@ -109,6 +122,25 @@ export default function NewPostForm({ board, onClose, onCreated }) {
             placeholder="Describe the work (artist, genre, your role)."
           />
         </div>
+        {hasRecruitSlots && (
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1.5">
+              Recruitment slots
+            </label>
+            <input
+              type="number"
+              min={RECRUIT_MIN}
+              max={RECRUIT_MAX}
+              value={recruitCount}
+              onChange={(e) => setRecruitCount(e.target.value)}
+              className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white focus:border-gold focus:outline-none"
+            />
+            <p className="text-[11px] text-muted mt-1.5">
+              Number of collaborators to greenlight ({RECRUIT_MIN}–{RECRUIT_MAX}).
+              Unlimited people can still apply.
+            </p>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-semibold text-muted mb-1.5">
             {isEngineer ? 'Source Track' : 'Attach Audio'}
@@ -127,7 +159,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
         {isEngineer && file && (
           <EngineerClipPicker
             file={file}
-            clipSeconds={CLIP_SECONDS}
+            clipSeconds={clipSeconds}
             startSec={clipStart}
             onStartChange={setClipStart}
           />

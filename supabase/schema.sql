@@ -35,6 +35,8 @@ create table if not exists public.posts (
   completed_at        timestamptz
 );
 
+alter table public.posts add column if not exists recruit_count integer;
+
 create table if not exists public.requests (
   id            uuid primary key default gen_random_uuid(),
   post_id       uuid not null references public.posts (id) on delete cascade,
@@ -85,8 +87,9 @@ create table if not exists public.items (
 -- RPCs (atomic operations) — SECURITY DEFINER so they bypass RLS safely
 -- ---------------------------------------------------------------------------
 
--- Close a deal: lock the post, mark the chosen request accepted,
--- and grant +2 credits to both the author and the chosen requester.
+-- Close a deal: accept one requester, grant +2 credits to both sides.
+-- Player/producer posts with recruit_count > 1 stay open until all slots are filled;
+-- applications (requests) are never capped — only greenlights count toward recruit_count.
 create or replace function public.close_deal(
   p_post_id uuid,
   p_requester_id uuid,
@@ -98,8 +101,12 @@ as $$
 declare
   v_author uuid;
   v_status text;
+  v_board text;
+  v_recruit integer;
+  v_accepted integer;
 begin
-  select author_id, status into v_author, v_status
+  select author_id, status, board, recruit_count
+  into v_author, v_status, v_board, v_recruit
   from public.posts where id = p_post_id for update;
 
   if v_author is null then
@@ -109,12 +116,12 @@ begin
     raise exception 'This deal is already closed.';
   end if;
 
-  update public.posts
-  set status = 'completed',
-      deal_requester_id = p_requester_id,
-      deal_requester_name = p_requester_name,
-      completed_at = now()
-  where id = p_post_id;
+  if not exists (
+    select 1 from public.requests
+    where post_id = p_post_id and requester_id = p_requester_id and status = 'pending'
+  ) then
+    raise exception 'Request not found or already accepted.';
+  end if;
 
   update public.requests
   set status = 'accepted'
@@ -122,6 +129,28 @@ begin
 
   update public.profiles set credits = credits + 2 where id = v_author;
   update public.profiles set credits = credits + 2 where id = p_requester_id;
+
+  if v_board in ('player', 'producer') and coalesce(v_recruit, 1) > 1 then
+    select count(*) into v_accepted
+    from public.requests
+    where post_id = p_post_id and status = 'accepted';
+
+    if v_accepted >= v_recruit then
+      update public.posts
+      set status = 'completed',
+          deal_requester_id = p_requester_id,
+          deal_requester_name = p_requester_name,
+          completed_at = now()
+      where id = p_post_id;
+    end if;
+  else
+    update public.posts
+    set status = 'completed',
+        deal_requester_id = p_requester_id,
+        deal_requester_name = p_requester_name,
+        completed_at = now()
+    where id = p_post_id;
+  end if;
 end;
 $$;
 

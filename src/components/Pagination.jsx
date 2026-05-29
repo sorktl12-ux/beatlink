@@ -1,25 +1,34 @@
+const WINDOW = 5
+
+/** Up to 5 page numbers, sliding as total pages grow. */
 function pageRange(page, totalPages) {
-  if (totalPages <= 7) {
+  if (totalPages <= WINDOW) {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
   }
-  const pages = new Set([1, totalPages, page, page - 1, page + 1].filter((p) => p >= 1 && p <= totalPages))
-  const sorted = [...pages].sort((a, b) => a - b)
-  const out = []
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0 && sorted[i] - sorted[i - 1] > 1) out.push('…')
-    out.push(sorted[i])
+
+  let start = page - Math.floor(WINDOW / 2)
+  let end = start + WINDOW - 1
+
+  if (start < 1) {
+    start = 1
+    end = WINDOW
   }
-  return out
+  if (end > totalPages) {
+    end = totalPages
+    start = totalPages - WINDOW + 1
+  }
+
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i)
 }
 
 export default function Pagination({ page, totalPages, onPageChange }) {
-  if (totalPages <= 1) return null
-
   const pages = pageRange(page, totalPages)
+  const hasPrevWindow = pages[0] > 1
+  const hasNextWindow = pages[pages.length - 1] < totalPages
 
   return (
     <nav
-      className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pt-8"
+      className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5"
       aria-label="Pagination"
     >
       <button
@@ -31,26 +40,46 @@ export default function Pagination({ page, totalPages, onPageChange }) {
         Prev
       </button>
 
-      {pages.map((p, i) =>
-        p === '…' ? (
-          <span key={`gap-${i}`} className="px-1 text-muted text-sm select-none">
-            …
-          </span>
-        ) : (
+      {hasPrevWindow && (
+        <>
           <button
-            key={p}
             type="button"
-            onClick={() => onPageChange(p)}
-            aria-current={p === page ? 'page' : undefined}
-            className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-sm font-bold transition-colors ${
-              p === page
-                ? 'border-gold bg-gold/15 text-gold'
-                : 'border-line text-muted hover:text-white hover:border-gold/40'
-            }`}
+            onClick={() => onPageChange(1)}
+            className="min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border border-line text-sm font-bold text-muted hover:text-white hover:border-gold/40 transition-colors"
           >
-            {p}
+            1
           </button>
-        )
+          <span className="px-0.5 text-muted text-sm select-none">…</span>
+        </>
+      )}
+
+      {pages.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => onPageChange(p)}
+          aria-current={p === page ? 'page' : undefined}
+          className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-sm font-bold transition-colors ${
+            p === page
+              ? 'border-gold bg-gold/15 text-gold'
+              : 'border-line text-muted hover:text-white hover:border-gold/40'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+
+      {hasNextWindow && (
+        <>
+          <span className="px-0.5 text-muted text-sm select-none">…</span>
+          <button
+            type="button"
+            onClick={() => onPageChange(totalPages)}
+            className="min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border border-line text-sm font-bold text-muted hover:text-white hover:border-gold/40 transition-colors"
+          >
+            {totalPages}
+          </button>
+        </>
       )}
 
       <button

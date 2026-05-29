@@ -99,8 +99,14 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-line">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-muted/60 text-xs">
-          © {new Date().getFullYear()} BEATLINK — Hip-Hop Work Exchange
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 text-center sm:text-left">
+          <p className="text-muted/80 text-sm leading-relaxed max-w-xl mx-auto sm:mx-0">
+            Built for Music Production majors — a space to share your work, find
+            collaborators, and sharpen your craft.
+          </p>
+          <p className="text-muted/45 text-xs mt-3">
+            © {new Date().getFullYear()} BEATLINK
+          </p>
         </div>
       </footer>
     </main>

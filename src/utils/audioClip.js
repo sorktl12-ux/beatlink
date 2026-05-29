@@ -1,5 +1,3 @@
-// Browser-side audio trim helpers for engineer showcase clips.
-
 function encodeWav(audioBuffer) {
   const numChannels = audioBuffer.numberOfChannels
   const sampleRate = audioBuffer.sampleRate
@@ -40,8 +38,7 @@ function encodeWav(audioBuffer) {
   return new Blob([buffer], { type: 'audio/wav' })
 }
 
-/** Peak amplitudes (0–1) for waveform visualization. */
-export function extractWaveformPeaks(audioBuffer, barCount = 220) {
+function extractWaveformPeaks(audioBuffer, barCount = 220) {
   const channels = audioBuffer.numberOfChannels
   const length = audioBuffer.length
   const samplesPerBar = Math.max(1, Math.floor(length / barCount))
@@ -63,22 +60,7 @@ export function extractWaveformPeaks(audioBuffer, barCount = 220) {
   return peaks.map((p) => p / max)
 }
 
-export async function decodeAudioFile(file) {
-  const arrayBuffer = await file.arrayBuffer()
-  const ctx = new AudioContext()
-  try {
-    const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0))
-    return {
-      audioBuffer,
-      duration: audioBuffer.duration,
-      peaks: extractWaveformPeaks(audioBuffer),
-    }
-  } finally {
-    await ctx.close()
-  }
-}
-
-export function trimAudioBuffer(audioBuffer, startSec, clipSec) {
+function trimAudioBuffer(audioBuffer, startSec, clipSec) {
   const sampleRate = audioBuffer.sampleRate
   const startSample = Math.floor(Math.max(0, startSec) * sampleRate)
   const clipSamples = Math.min(
@@ -100,11 +82,24 @@ export function trimAudioBuffer(audioBuffer, startSec, clipSec) {
   return trimmed
 }
 
-/** Returns a WAV blob for the selected segment. */
+export async function decodeAudioFile(file) {
+  const arrayBuffer = await file.arrayBuffer()
+  const ctx = new AudioContext()
+  try {
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0))
+    return {
+      audioBuffer,
+      duration: audioBuffer.duration,
+      peaks: extractWaveformPeaks(audioBuffer),
+    }
+  } finally {
+    await ctx.close()
+  }
+}
+
 export async function trimAudioFile(file, startSec, clipSec) {
   const { audioBuffer } = await decodeAudioFile(file)
-  const trimmed = trimAudioBuffer(audioBuffer, startSec, clipSec)
-  return encodeWav(trimmed)
+  return encodeWav(trimAudioBuffer(audioBuffer, startSec, clipSec))
 }
 
 export function formatTime(sec) {

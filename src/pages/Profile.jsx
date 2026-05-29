@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { BEAT_PRICE, BOARDS, roleMeta } from '../constants'
-
-const STATUS_LABEL = {
-  pending: { t: 'Pending', c: 'text-orange' },
-  approved: { t: 'Open', c: 'text-emerald' },
-  completed: { t: 'Closed', c: 'text-muted' },
-  rejected: { t: 'Rejected', c: 'text-crimson' },
-}
+import { BEAT_PRICE, BOARDS, POST_STATUS, roleMeta } from '../constants'
 
 export default function Profile() {
   const { user, profile, isAdmin } = useAuth()
@@ -93,7 +86,7 @@ export default function Profile() {
                   </h3>
                   <ul className="space-y-2">
                     {list.map((p) => {
-                      const s = STATUS_LABEL[p.status] || STATUS_LABEL.approved
+                      const s = POST_STATUS[p.status] || POST_STATUS.approved
                       return (
                         <li key={p.id}>
                           <Link to={`/post/${p.id}`}>
@@ -101,7 +94,7 @@ export default function Profile() {
                               <p className="text-white font-semibold truncate min-w-0">
                                 {p.title}
                               </p>
-                              <span className={`text-xs font-bold shrink-0 ${s.c}`}>{s.t}</span>
+                              <span className={`text-xs font-bold shrink-0 ${s.cls}`}>{s.label}</span>
                             </div>
                           </Link>
                         </li>

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, AUDIO_BUCKET } from '../supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { BOARDS, DEAL_REWARD } from '../constants'
+import { BOARDS, DEAL_REWARD, RECRUIT_BOARDS } from '../constants'
 import AudioPlayer from '../components/AudioPlayer'
+import EditPostForm from '../components/EditPostForm'
 
 export default function PostDetail() {
   const { id } = useParams()
@@ -14,9 +15,7 @@ export default function PostDetail() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [editing, setEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState('')
-  const [editDesc, setEditDesc] = useState('')
+  const [showEditForm, setShowEditForm] = useState(false)
 
   const fetchPost = useCallback(async () => {
     const { data } = await supabase.from('posts').select('*').eq('id', id).maybeSingle()
@@ -67,32 +66,13 @@ export default function PostDetail() {
   const canManage = isOwner || isAdmin
   const isCompleted = post.status === 'completed'
   const myRequest = requests.find((r) => r.requester_id === user?.id)
-
-  const startEdit = () => {
-    setError('')
-    setEditTitle(post.title)
-    setEditDesc(post.description || '')
-    setEditing(true)
-  }
-
-  const saveEdit = async () => {
-    if (!editTitle.trim()) return setError('Please enter a title.')
-    setBusy(true)
-    setError('')
-    try {
-      const { error: err } = await supabase
-        .from('posts')
-        .update({ title: editTitle.trim(), description: editDesc.trim() })
-        .eq('id', id)
-      if (err) throw err
-      setEditing(false)
-      fetchPost()
-    } catch (err) {
-      setError(err.message || 'Update failed')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const hasRecruitSlots = RECRUIT_BOARDS.includes(post.board)
+  const recruitTotal = hasRecruitSlots ? Math.max(1, post.recruit_count ?? 1) : 1
+  const multiRecruit = hasRecruitSlots && recruitTotal > 1
+  const acceptedRequests = requests.filter((r) => r.status === 'accepted')
+  const acceptedCount = acceptedRequests.length
+  const slotsRemaining = multiRecruit ? Math.max(0, recruitTotal - acceptedCount) : isCompleted ? 0 : 1
+  const slotsFull = multiRecruit ? acceptedCount >= recruitTotal : isCompleted
 
   const deletePost = async () => {
     if (!window.confirm('Delete this post? This cannot be undone.')) return
@@ -161,48 +141,19 @@ export default function PostDetail() {
         ← Back
       </button>
 
-      {editing ? (
-        <section className="rounded-2xl border border-gold/30 bg-surface p-5 space-y-4">
-          <h2 className="font-bold text-white">Edit Post</h2>
-          <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">Title</label>
-            <input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-muted mb-1.5">Details</label>
-            <textarea
-              value={editDesc}
-              onChange={(e) => setEditDesc(e.target.value)}
-              rows={4}
-              className="w-full rounded-lg bg-ink border border-line px-4 py-3 text-white placeholder-muted/60 focus:border-gold focus:outline-none resize-none"
-            />
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={saveEdit}
-              disabled={busy}
-              className="rounded-lg bg-gold text-ink font-bold px-5 py-2.5 hover:bg-gold-hi transition-colors disabled:opacity-50"
-            >
-              {busy ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="rounded-lg border border-line text-white font-semibold px-5 py-2.5 hover:border-gold/50 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
-      ) : (
-        <article className={isCompleted ? 'grayscale opacity-60' : ''}>
+      {showEditForm && (
+        <EditPostForm
+          post={post}
+          onClose={() => setShowEditForm(false)}
+          onSaved={fetchPost}
+        />
+      )}
+
+      <article>
           <div className="flex items-center gap-3 mb-3">
             <span
-              className="text-[11px] font-bold tracking-widest uppercase"
-              style={{ color: accent }}
+              className={`text-[11px] font-bold tracking-widest uppercase ${isCompleted ? 'text-muted' : ''}`}
+              style={isCompleted ? undefined : { color: accent }}
             >
               {board?.label}
             </span>
@@ -211,12 +162,35 @@ export default function PostDetail() {
                 Deal Closed
               </span>
             )}
+            {multiRecruit && !isCompleted && (
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+                style={{ borderColor: `${accent}66`, color: accent }}
+              >
+                Recruiting {recruitTotal} · {acceptedCount}/{recruitTotal} filled
+              </span>
+            )}
+            {multiRecruit && isCompleted && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-line text-muted">
+                Recruited {recruitTotal}
+              </span>
+            )}
           </div>
-          <h1 className="text-3xl font-extrabold text-white leading-tight">{post.title}</h1>
+          <h1
+            className={`text-3xl font-extrabold leading-tight ${
+              isCompleted ? 'text-muted' : 'text-white'
+            }`}
+          >
+            {post.title}
+          </h1>
           <p className="text-muted text-sm mt-2">@{post.author_name}</p>
 
           {post.description && (
-            <p className="text-white/90 leading-relaxed mt-5 whitespace-pre-wrap">
+            <p
+              className={`leading-relaxed mt-5 whitespace-pre-wrap ${
+                isCompleted ? 'text-muted/80' : 'text-white/90'
+              }`}
+            >
               {post.description}
             </p>
           )}
@@ -225,13 +199,15 @@ export default function PostDetail() {
             <AudioPlayer src={post.audio_url} label="Attached track" />
           </div>
         </article>
-      )}
 
       {/* Owner / admin controls — available even after the deal is closed */}
-      {canManage && !editing && (
+      {canManage && (
         <div className="mt-5 flex gap-3">
           <button
-            onClick={startEdit}
+            onClick={() => {
+              setError('')
+              setShowEditForm(true)
+            }}
             className="rounded-lg border border-line text-white text-sm font-bold px-4 py-2 hover:border-gold/50 transition-colors"
           >
             Edit
@@ -249,14 +225,18 @@ export default function PostDetail() {
       {isCompleted && (
         <div className="mt-8 rounded-xl border border-line bg-surface p-5 text-center">
           <p className="text-white font-bold">
-            ✓ Deal closed with <span className="text-gold">@{post.deal_requester_name}</span>
+            ✓ Deal closed with{' '}
+            <span className="text-gold">
+              {acceptedRequests.length > 0
+                ? acceptedRequests.map((r) => `@${r.requester_name}`).join(', ')
+                : `@${post.deal_requester_name}`}
+            </span>
           </p>
           <p className="text-muted text-sm mt-1">
-            {DEAL_REWARD} credits were granted to both sides.
+            {DEAL_REWARD} credits were granted to both sides per greenlight.
           </p>
         </div>
       )}
-
       {error && (
         <p className="mt-6 text-crimson text-sm bg-crimson/10 border border-crimson/30 rounded-lg px-3 py-2">
           {error}
@@ -268,8 +248,16 @@ export default function PostDetail() {
         <section className="mt-8 rounded-2xl border border-line bg-surface p-5">
           <h2 className="font-bold text-white mb-3">Send a Work Request</h2>
           {myRequest ? (
-            <p className="text-emerald text-sm bg-emerald/10 border border-emerald/30 rounded-lg px-3 py-2">
-              Request sent. Waiting for the poster to greenlight you.
+            <p
+              className={`text-sm rounded-lg px-3 py-2 border ${
+                myRequest.status === 'accepted'
+                  ? 'text-gold bg-gold/10 border-gold/30'
+                  : 'text-emerald bg-emerald/10 border-emerald/30'
+              }`}
+            >
+              {myRequest.status === 'accepted'
+                ? 'You were greenlit for this collab.'
+                : 'Request sent. Waiting for the poster to greenlight you.'}
             </p>
           ) : (
             <>
@@ -297,6 +285,12 @@ export default function PostDetail() {
         <section className="mt-8">
           <h2 className="font-bold text-white mb-3">
             Work Requests <span className="text-muted">({requests.length})</span>
+            {multiRecruit && (
+              <span className="text-muted font-normal text-sm ml-2">
+                · {acceptedCount}/{recruitTotal} greenlit
+                {slotsRemaining > 0 && ` · ${slotsRemaining} slot${slotsRemaining > 1 ? 's' : ''} left`}
+              </span>
+            )}
           </h2>
           {requests.length === 0 ? (
             <p className="text-muted text-sm">No requests yet.</p>
@@ -313,15 +307,13 @@ export default function PostDetail() {
                       <p className="text-muted text-sm mt-1 break-words">{r.message}</p>
                     )}
                   </div>
-                  {isCompleted ? (
-                    <span
-                      className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${
-                        r.status === 'accepted'
-                          ? 'bg-gold/15 text-gold'
-                          : 'bg-line text-muted'
-                      }`}
-                    >
-                      {r.status === 'accepted' ? 'Chosen' : 'Closed'}
+                  {r.status === 'accepted' ? (
+                    <span className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full bg-gold/15 text-gold">
+                      Greenlit
+                    </span>
+                  ) : isCompleted || slotsFull ? (
+                    <span className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full bg-line text-muted">
+                      Closed
                     </span>
                   ) : (
                     <button
