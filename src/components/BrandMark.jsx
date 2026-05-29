@@ -23,13 +23,13 @@ export function BrandLogo({ className = '', size = 'md' }) {
   )
 }
 
-/** beatlink wordmark — single joined word, beat gold + link white. */
+/** BEATLINK wordmark — joined uppercase word, BEAT gold + LINK white. */
 export function BrandWordmark({ size = 'md', className = '' }) {
   const s = sizeMap[size] || sizeMap.md
   return (
-    <span className={`display ${s.text} leading-none whitespace-nowrap ${className}`}>
-      <span className="text-gold">beat</span>
-      <span className="text-white">link</span>
+    <span className={`display ${s.text} leading-none whitespace-nowrap uppercase ${className}`}>
+      <span className="text-gold">BEAT</span>
+      <span className="text-white">LINK</span>
     </span>
   )
 }
@@ -37,9 +37,9 @@ export function BrandWordmark({ size = 'md', className = '' }) {
 /** Logo beside beatlink wordmark. logoPosition: left | right (default right). */
 export function BrandMark({ size = 'md', className = '', wordmarkClassName = '', logoPosition = 'right' }) {
   const wordmark = <BrandWordmark size={size} className={wordmarkClassName} />
-  const logo = <BrandLogo size={size} />
+  const logo = <BrandLogo size={size} className={logoPosition === 'right' ? '-ml-0.5' : ''} />
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
+    <span className={`inline-flex items-center gap-0.5 ${className}`}>
       {logoPosition === 'left' ? (
         <>
           {logo}
