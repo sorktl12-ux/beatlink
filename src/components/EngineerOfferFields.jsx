@@ -1,4 +1,4 @@
-import { ENGINEER_MIX_SCOPES, ENGINEER_PAY_MIN, ENGINEER_PAY_MAX } from '../constants'
+import { ENGINEER_MIX_SCOPE_IDS, ENGINEER_PAY_MIN, ENGINEER_PAY_MAX } from '../constants'
 import { useLocale } from '../contexts/LocaleContext'
 import { fmtKrw } from '../utils/format'
 
@@ -10,7 +10,7 @@ export function validateEngineerOffer(payKrw, mixScope, t) {
       max: fmtKrw(ENGINEER_PAY_MAX),
     })
   }
-  if (!ENGINEER_MIX_SCOPES.some((s) => s.id === mixScope)) {
+  if (!ENGINEER_MIX_SCOPE_IDS.includes(mixScope)) {
     return t('form.errMixScope')
   }
   return null
@@ -46,20 +46,20 @@ export default function EngineerOfferFields({ payKrw, onPayChange, mixScope, onM
       <div>
         <label className="block text-xs font-semibold text-muted mb-1.5">{t('form.mixScope')}</label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {ENGINEER_MIX_SCOPES.map((scope) => {
-            const selected = mixScope === scope.id
+          {ENGINEER_MIX_SCOPE_IDS.map((scopeId) => {
+            const selected = mixScope === scopeId
             return (
               <button
-                key={scope.id}
+                key={scopeId}
                 type="button"
-                onClick={() => onMixScopeChange(scope.id)}
+                onClick={() => onMixScopeChange(scopeId)}
                 className={`rounded-lg border px-4 py-3 text-left text-sm font-semibold transition-colors ${
                   selected
                     ? 'border-teal bg-teal/10 text-teal'
                     : 'border-line text-white hover:border-teal/40'
                 }`}
               >
-                {t(`mixScope.${scope.id}`)}
+                {t(`mixScope.${scopeId}`)}
               </button>
             )
           })}

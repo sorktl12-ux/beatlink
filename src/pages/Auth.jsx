@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLocale } from '../contexts/LocaleContext'
-import { ROLES } from '../constants'
+import { BOARDS } from '../constants'
 
 const KOREAN_NAME = /^[가-힣]{2,}$/
 
@@ -141,7 +141,7 @@ export default function Auth() {
             <div>
               <label className="block text-xs font-semibold text-muted mb-2">{t('auth.chooseLane')}</label>
               <div className="grid grid-cols-3 gap-2">
-                {ROLES.map((r) => (
+                {BOARDS.map((r) => (
                   <button
                     type="button"
                     key={r.id}

@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
 import { BOARDS, MARKET_COLOR } from '../constants'
 import { useLocale } from '../contexts/LocaleContext'
+import { useAuth } from '../contexts/AuthContext'
+import { useShow505Config } from '../contexts/Show505Context'
+import { show505EventLine } from '../components/Show505EventMeta'
+import { useShow505Countdown, formatCountdownMain } from '../hooks/useShow505Countdown'
 
 function HomeCard({ to, color, label, sub, tagline, cta }) {
   return (
@@ -37,8 +41,18 @@ function HomeCard({ to, color, label, sub, tagline, cta }) {
 }
 
 export default function Home() {
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
+  const { isAuthed, isAdmin } = useAuth()
+  const { active: show505Active, config: show505Config, loading: show505Loading } = useShow505Config()
   const steps = ['step1', 'step2', 'step3']
+  const show505Title = show505Config?.event_title || '505'
+  const show505To = isAuthed ? '/505' : '/login'
+  const show505OnHome = !show505Loading && (show505Active || isAdmin)
+  const show505VenueLine = show505EventLine(show505Config, locale)
+  const { remaining: countdownMs } = useShow505Countdown(show505Config?.event_starts_at)
+  const mainCountdown = show505Config?.event_starts_at
+    ? formatCountdownMain(countdownMs, locale)
+    : null
 
   return (
     <main>
@@ -55,6 +69,34 @@ export default function Home() {
           <p className="text-muted text-base sm:text-lg max-w-xl mt-6 leading-relaxed">
             {t('home.heroDesc')}
           </p>
+
+          {show505OnHome && (
+            <Link
+              to={show505To}
+              className="group mt-10 block max-w-2xl rounded-2xl border border-[#FF6B35]/50 bg-[#FF6B35]/10 p-5 sm:p-6 transition-all hover:border-[#FF6B35] hover:bg-[#FF6B35]/15"
+            >
+              <p className="text-[#FF6B35] text-[10px] sm:text-xs font-bold tracking-[0.35em] uppercase mb-2">
+                {t('home.show505Badge')}
+              </p>
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="display text-3xl sm:text-4xl text-white leading-none">{show505Title}</h2>
+                  {mainCountdown && (
+                    <p className="display text-xl sm:text-2xl text-[#FF6B35] mt-3 tabular-nums">
+                      {mainCountdown}
+                    </p>
+                  )}
+                  {show505VenueLine && (
+                    <p className="text-muted text-sm mt-2 leading-relaxed">{show505VenueLine}</p>
+                  )}
+                </div>
+                <span className="inline-flex items-center gap-1 shrink-0 text-xs font-bold tracking-widest uppercase text-[#FF6B35] group-hover:text-white transition-colors">
+                  {isAuthed ? t('home.openShow505') : t('home.show505Login')}
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </span>
+              </div>
+            </Link>
+          )}
         </div>
       </section>
 

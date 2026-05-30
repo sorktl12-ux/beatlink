@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { LocaleProvider } from './contexts/LocaleContext.jsx'
+import { Show505Provider } from './contexts/Show505Context.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <LocaleProvider>
           <AuthProvider>
-            <App />
+            <Show505Provider>
+              <App />
+            </Show505Provider>
           </AuthProvider>
         </LocaleProvider>
       </BrowserRouter>

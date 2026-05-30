@@ -1,6 +1,14 @@
 node_modules
 dist
 .env
-.env.local
+.env.*
+!.env.example
+!.env.admin.example
+.env.admin
+.admin-credentials.local
 .DS_Store
 .vercel
+.claude
+.cursor
+*.pem
+id_ed25519*

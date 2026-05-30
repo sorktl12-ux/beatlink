@@ -1,6 +1,8 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLocale } from '../contexts/LocaleContext'
+import { useShow505Config } from '../contexts/Show505Context'
+import { useShow505Countdown, formatCountdownNav } from '../hooks/useShow505Countdown'
 import BrandMark from './BrandMark'
 
 const NAV_LINKS = [
@@ -8,6 +10,7 @@ const NAV_LINKS = [
   { to: '/board/producer', labelKey: 'nav.producer', activeCls: 'text-violet' },
   { to: '/board/engineer', labelKey: 'nav.engineer', activeCls: 'text-teal' },
   { to: '/market', labelKey: 'nav.market', activeCls: 'text-emerald' },
+  { to: '/505', labelKey: 'nav.show505', activeCls: 'text-[#FF6B35]', show505Only: true },
   { to: '/admin', labelKey: 'nav.admin', activeCls: 'text-gold', adminOnly: true },
 ]
 
@@ -16,10 +19,37 @@ const navItem = (activeCls) => ({ isActive }) =>
     isActive ? activeCls : 'text-muted hover:text-white'
   }`
 
+const navItem505 = (activeCls) => ({ isActive }) =>
+  `px-1.5 lg:px-2 py-1.5 text-[1.05rem] lg:text-[1.225rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
+    isActive ? activeCls : ''
+  }`
+
+const mobileNavItem505 = (activeCls) => ({ isActive }) =>
+  `shrink-0 px-2 py-1 text-[1.05rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
+    isActive ? activeCls : ''
+  }`
+
 const mobileNavItem = (activeCls) => ({ isActive }) =>
   `shrink-0 px-2 py-1.5 text-[1.05rem] font-semibold tracking-normal whitespace-nowrap transition-colors ${
     isActive ? activeCls : 'text-muted hover:text-white'
   }`
+
+function Nav505Link({ to, label, countdownLabel, activeCls, classNameFn }) {
+  return (
+    <NavLink to={to} className={classNameFn(activeCls)}>
+      {({ isActive }) => (
+        <span className="flex flex-col items-center leading-none gap-0.5">
+          {countdownLabel && (
+            <span className="text-[9px] sm:text-[10px] font-bold tracking-widest text-crimson">
+              {countdownLabel}
+            </span>
+          )}
+          <span className={isActive ? activeCls : 'text-muted hover:text-white'}>{label}</span>
+        </span>
+      )}
+    </NavLink>
+  )
+}
 
 function LangSwitch() {
   const { locale, setLocale, t } = useLocale()
@@ -44,8 +74,22 @@ function LangSwitch() {
 
 export default function Navbar() {
   const { isAuthed, isAdmin, profile, logout } = useAuth()
-  const { t } = useLocale()
+  const { locale, t } = useLocale()
+  const { active: show505Active, config: show505Config } = useShow505Config()
   const navigate = useNavigate()
+
+  const show505Nav = isAuthed && (show505Active || isAdmin)
+  const show505Label = show505Config?.event_title || t('nav.show505')
+  const { remaining: countdownMs } = useShow505Countdown(show505Config?.event_starts_at)
+  const navCountdown = show505Config?.event_starts_at
+    ? formatCountdownNav(countdownMs, locale)
+    : null
+
+  const visibleLinks = NAV_LINKS.filter((link) => {
+    if (link.adminOnly && !isAdmin) return false
+    if (link.show505Only && !show505Nav) return false
+    return true
+  })
 
   const handleLogout = async () => {
     await logout()
@@ -60,11 +104,22 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden sm:flex items-center gap-0 ml-0.5 shrink-0">
-          {NAV_LINKS.filter((link) => !link.adminOnly || isAdmin).map((link) => (
-            <NavLink key={link.to} to={link.to} className={navItem(link.activeCls)}>
-              {t(link.labelKey)}
-            </NavLink>
-          ))}
+          {visibleLinks.map((link) =>
+            link.show505Only ? (
+              <Nav505Link
+                key={link.to}
+                to={link.to}
+                label={show505Label}
+                countdownLabel={navCountdown}
+                activeCls={link.activeCls}
+                classNameFn={navItem505}
+              />
+            ) : (
+              <NavLink key={link.to} to={link.to} className={navItem(link.activeCls)}>
+                {t(link.labelKey)}
+              </NavLink>
+            )
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
@@ -106,11 +161,22 @@ export default function Navbar() {
       </div>
 
       <nav className="sm:hidden flex items-center gap-0 overflow-x-auto flex-nowrap scrollbar-none border-t border-line px-2 py-1.5">
-        {NAV_LINKS.filter((link) => !link.adminOnly || isAdmin).map((link) => (
-          <NavLink key={link.to} to={link.to} className={mobileNavItem(link.activeCls)}>
-            {t(link.labelKey)}
-          </NavLink>
-        ))}
+        {visibleLinks.map((link) =>
+          link.show505Only ? (
+            <Nav505Link
+              key={link.to}
+              to={link.to}
+              label={show505Label}
+              countdownLabel={navCountdown}
+              activeCls={link.activeCls}
+              classNameFn={mobileNavItem505}
+            />
+          ) : (
+            <NavLink key={link.to} to={link.to} className={mobileNavItem(link.activeCls)}>
+              {t(link.labelKey)}
+            </NavLink>
+          )
+        )}
       </nav>
     </header>
   )

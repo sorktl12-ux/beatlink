@@ -7,6 +7,7 @@ import Modal from './Modal'
 import EngineerClipPicker from './EngineerClipPicker'
 import EngineerOfferFields, { validateEngineerOffer } from './EngineerOfferFields'
 import { trimAudioFile } from '../utils/audioClip'
+import { audioContentType, audioFileExtension, getAudioFileAccept, isAudioFile, isIOS } from '../utils/audioFile'
 import { formatDbError } from '../utils/dbError'
 
 export default function NewPostForm({ board, onClose, onCreated }) {
@@ -37,7 +38,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
     setError('')
     if (!title.trim()) return setError(t('form.errTitle'))
     if (!file) return setError(t('form.errAudio'))
-    if (!file.type.startsWith('audio/')) return setError(t('form.errAudioType'))
+    if (!isAudioFile(file)) return setError(t('form.errAudioType'))
     if (hasRecruitSlots) {
       const n = Number(recruitCount)
       if (!Number.isInteger(n) || n < RECRUIT_MIN || n > RECRUIT_MAX) {
@@ -52,7 +53,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
     setBusy(true)
     try {
       let uploadFile = file
-      let contentType = file.type
+      let contentType = audioContentType(file)
 
       if (isEngineer) {
         try {
@@ -65,7 +66,7 @@ export default function NewPostForm({ board, onClose, onCreated }) {
         }
       }
 
-      const ext = isEngineer ? 'wav' : file.name.split('.').pop()
+      const ext = isEngineer ? 'wav' : audioFileExtension(file)
       const path = `posts/${user.id}/${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage
         .from(AUDIO_BUCKET)
@@ -107,6 +108,8 @@ export default function NewPostForm({ board, onClose, onCreated }) {
   const detailsPh = ['player', 'producer', 'engineer'].includes(board)
     ? t(`form.detailsPh.${board}`)
     : t('form.detailsPh.default')
+
+  const audioAccept = getAudioFileAccept()
 
   return (
     <Modal title={`${t('form.newListing')} · ${t(`boards.${board}.label`)}`} onClose={onClose}>
@@ -173,10 +176,13 @@ export default function NewPostForm({ board, onClose, onCreated }) {
           </label>
           <input
             type="file"
-            accept="audio/*"
+            {...(audioAccept ? { accept: audioAccept } : {})}
             onChange={(e) => onFile(e.target.files?.[0] || null)}
             className="w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-gold file:text-ink file:font-bold file:px-4 file:py-2 file:cursor-pointer hover:file:bg-gold-hi"
           />
+          {isIOS() && (
+            <p className="text-[11px] text-muted mt-1.5 leading-relaxed">{t('form.iosAudioHint')}</p>
+          )}
           {file && !isEngineer && <p className="text-xs text-muted mt-1.5">{file.name}</p>}
         </div>
 

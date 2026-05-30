@@ -1,36 +1,38 @@
 -- BEATLINK — Supabase schema (production)
--- Run this whole file in the Supabase SQL Editor (Dashboard > SQL Editor > New query).
--- Safe to re-run: uses "if not exists" / "drop policy if exists", so it won't wipe data.
+-- Run in Supabase SQL Editor. Safe to re-run.
 
 -- ---------------------------------------------------------------------------
 -- Tables
 -- ---------------------------------------------------------------------------
 create table if not exists public.profiles (
-  id          uuid primary key references auth.users (id) on delete cascade,
-  username    text unique not null,
-  full_name   text,                                  -- real name (Korean), required at signup
-  phone       text,                                  -- contact phone, required at signup
-  role        text not null default 'player',
-  credits     integer not null default 0,
-  created_at  timestamptz not null default now()
+  id              uuid primary key references auth.users (id) on delete cascade,
+  username        text unique not null,
+  full_name       text,
+  phone           text,
+  role            text not null default 'player',
+  seller_approved boolean not null default false,
+  created_at      timestamptz not null default now()
 );
 
--- For projects created before these columns existed:
 alter table public.profiles add column if not exists full_name text;
 alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists seller_approved boolean not null default false;
 
 create table if not exists public.posts (
   id                  uuid primary key default gen_random_uuid(),
-  board               text not null,                 -- 'player' | 'producer' | 'engineer'
+  board               text not null,
   author_id           uuid not null references public.profiles (id) on delete cascade,
   author_name         text not null,
   title               text not null,
   description         text default '',
   audio_url           text,
   audio_path          text,
-  status              text not null default 'pending', -- pending|approved|rejected|completed
+  status              text not null default 'approved',
   deal_requester_id   uuid,
   deal_requester_name text,
+  recruit_count       integer,
+  engineer_pay_krw    integer,
+  engineer_mix_scope  text,
   created_at          timestamptz not null default now(),
   completed_at        timestamptz
 );
@@ -40,37 +42,15 @@ alter table public.posts add column if not exists engineer_pay_krw integer;
 alter table public.posts add column if not exists engineer_mix_scope text;
 
 create table if not exists public.requests (
-  id            uuid primary key default gen_random_uuid(),
-  post_id       uuid not null references public.posts (id) on delete cascade,
-  requester_id  uuid not null,
+  id             uuid primary key default gen_random_uuid(),
+  post_id        uuid not null references public.posts (id) on delete cascade,
+  requester_id   uuid not null,
   requester_name text not null,
-  message       text default '',
-  status        text not null default 'pending',     -- pending | accepted
-  created_at    timestamptz not null default now(),
+  message        text default '',
+  status         text not null default 'pending',
+  created_at     timestamptz not null default now(),
   unique (post_id, requester_id)
 );
-
-create table if not exists public.beats (
-  id          uuid primary key default gen_random_uuid(),
-  title       text not null,
-  description text default '',
-  audio_url   text,
-  audio_path  text,
-  created_at  timestamptz not null default now()
-);
-
-create table if not exists public.purchases (
-  id          uuid primary key default gen_random_uuid(),
-  beat_id     uuid not null references public.beats (id) on delete cascade,
-  beat_title  text not null,
-  audio_url   text,
-  buyer_id    uuid not null,
-  created_at  timestamptz not null default now(),
-  unique (buyer_id, beat_id)
-);
-
--- Marketplace: only members approved by the admin (seller_approved) can post items
-alter table public.profiles add column if not exists seller_approved boolean not null default false;
 
 create table if not exists public.items (
   id          uuid primary key default gen_random_uuid(),
@@ -81,17 +61,18 @@ create table if not exists public.items (
   price       integer not null default 0,
   image_url   text,
   image_path  text,
-  status      text not null default 'available',   -- available | sold
+  status      text not null default 'available',
   created_at  timestamptz not null default now()
 );
 
--- ---------------------------------------------------------------------------
--- RPCs (atomic operations) — SECURITY DEFINER so they bypass RLS safely
--- ---------------------------------------------------------------------------
+-- Legacy beat-shop tables (removed from app)
+drop table if exists public.purchases cascade;
+drop table if exists public.beats cascade;
+alter table public.profiles drop column if exists credits;
 
--- Close a deal: accept one requester and mark the post completed when slots are filled.
--- Player/producer posts with recruit_count > 1 stay open until all slots are filled;
--- applications (requests) are never capped — only greenlights count toward recruit_count.
+-- ---------------------------------------------------------------------------
+-- RPCs
+-- ---------------------------------------------------------------------------
 create or replace function public.close_deal(
   p_post_id uuid,
   p_requester_id uuid,
@@ -99,6 +80,7 @@ create or replace function public.close_deal(
 ) returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_author uuid;
@@ -113,6 +95,9 @@ begin
 
   if v_author is null then
     raise exception 'Post not found.';
+  end if;
+  if auth.uid() is distinct from v_author and not public.is_admin() then
+    raise exception 'Not authorized.';
   end if;
   if v_status = 'completed' then
     raise exception 'This deal is already closed.';
@@ -156,16 +141,13 @@ $$;
 drop function if exists public.buy_beat(uuid, uuid);
 
 -- ---------------------------------------------------------------------------
--- Row Level Security (production policies)
+-- RLS
 -- ---------------------------------------------------------------------------
-alter table public.profiles  enable row level security;
-alter table public.posts     enable row level security;
-alter table public.requests  enable row level security;
-alter table public.beats     enable row level security;
-alter table public.purchases enable row level security;
-alter table public.items     enable row level security;
+alter table public.profiles enable row level security;
+alter table public.posts enable row level security;
+alter table public.requests enable row level security;
+alter table public.items enable row level security;
 
--- Helper functions (SECURITY DEFINER -> bypass RLS, so no recursion on profiles)
 create or replace function public.is_admin() returns boolean
 language sql security definer stable set search_path = public as $$
   select exists (
@@ -181,17 +163,14 @@ language sql security definer stable set search_path = public as $$
   );
 $$;
 
--- Remove the old permissive demo policy from every table
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','posts','requests','beats','purchases','items'] loop
+  foreach t in array array['profiles','posts','requests','items'] loop
     execute format('drop policy if exists "demo_all" on public.%I;', t);
   end loop;
 end $$;
 
--- profiles: read your own (admin reads all); insert only your own row and you may
--- NOT self-grant approval/admin; updates & deletes are admin-only.
 drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles for select
   using (auth.uid() = id or public.is_admin());
@@ -214,8 +193,6 @@ drop policy if exists "profiles_delete" on public.profiles;
 create policy "profiles_delete" on public.profiles for delete
   using (public.is_admin());
 
--- posts: anyone can read; only approved members (or admin) can post as themselves;
--- only the author or admin can edit/delete.
 drop policy if exists "posts_select" on public.posts;
 create policy "posts_select" on public.posts for select using (true);
 
@@ -232,7 +209,6 @@ drop policy if exists "posts_delete" on public.posts;
 create policy "posts_delete" on public.posts for delete
   using (auth.uid() = author_id or public.is_admin());
 
--- requests: visible to the requester, the post author, and admin; create as yourself.
 drop policy if exists "requests_select" on public.requests;
 create policy "requests_select" on public.requests for select
   using (
@@ -256,25 +232,6 @@ create policy "requests_delete" on public.requests for delete
     or exists (select 1 from public.posts p where p.id = post_id and p.author_id = auth.uid())
   );
 
--- beats: anyone can read; only admin manages them.
-drop policy if exists "beats_select" on public.beats;
-create policy "beats_select" on public.beats for select using (true);
-
-drop policy if exists "beats_modify" on public.beats;
-create policy "beats_modify" on public.beats for all
-  using (public.is_admin()) with check (public.is_admin());
-
--- purchases: legacy table (beat shop removed); admin-only access.
-drop policy if exists "purchases_select" on public.purchases;
-create policy "purchases_select" on public.purchases for select
-  using (auth.uid() = buyer_id or public.is_admin());
-
-drop policy if exists "purchases_modify" on public.purchases;
-create policy "purchases_modify" on public.purchases for all
-  using (public.is_admin()) with check (public.is_admin());
-
--- items (marketplace): anyone can read; only approved members (or admin) can list;
--- only the seller or admin can edit/delete.
 drop policy if exists "items_select" on public.items;
 create policy "items_select" on public.items for select using (true);
 
@@ -292,21 +249,21 @@ create policy "items_delete" on public.items for delete
   using (auth.uid() = seller_id or public.is_admin());
 
 -- ---------------------------------------------------------------------------
--- Realtime (live updates like Firestore onSnapshot)
+-- Realtime
 -- ---------------------------------------------------------------------------
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','posts','requests','beats','purchases','items'] loop
+  foreach t in array array['profiles','posts','requests','items'] loop
     begin
       execute format('alter publication supabase_realtime add table public.%I;', t);
-    exception when others then null; -- already added
+    exception when others then null;
     end;
   end loop;
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Storage bucket for audio (public read)
+-- Storage
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('audio', 'audio', true)
@@ -316,15 +273,62 @@ insert into storage.buckets (id, name, public)
 values ('images', 'images', true)
 on conflict (id) do update set public = true;
 
--- Public read for playback/preview; uploads & deletes require a logged-in user.
-drop policy if exists "audio_read"  on storage.objects;
+drop policy if exists "audio_read" on storage.objects;
 drop policy if exists "audio_write" on storage.objects;
-create policy "audio_read"  on storage.objects for select using (bucket_id = 'audio');
-create policy "audio_write" on storage.objects for all to authenticated
-  using (bucket_id = 'audio') with check (bucket_id = 'audio');
-
-drop policy if exists "images_read"  on storage.objects;
+drop policy if exists "images_read" on storage.objects;
 drop policy if exists "images_write" on storage.objects;
-create policy "images_read"  on storage.objects for select using (bucket_id = 'images');
+
+create policy "audio_read" on storage.objects for select
+  using (bucket_id = 'audio');
+
+create policy "audio_write" on storage.objects for all to authenticated
+  using (
+    bucket_id = 'audio'
+    and (
+      public.is_admin()
+      or (
+        (storage.foldername(name))[1] = 'posts'
+        and (storage.foldername(name))[2] = auth.uid()::text
+      )
+    )
+  )
+  with check (
+    bucket_id = 'audio'
+    and (
+      public.is_admin()
+      or (
+        (storage.foldername(name))[1] = 'posts'
+        and (storage.foldername(name))[2] = auth.uid()::text
+      )
+    )
+  );
+
+create policy "images_read" on storage.objects for select
+  using (bucket_id = 'images');
+
 create policy "images_write" on storage.objects for all to authenticated
-  using (bucket_id = 'images') with check (bucket_id = 'images');
+  using (
+    bucket_id = 'images'
+    and (
+      public.is_admin()
+      or (
+        (storage.foldername(name))[1] = 'items'
+        and (storage.foldername(name))[2] = auth.uid()::text
+      )
+    )
+  )
+  with check (
+    bucket_id = 'images'
+    and (
+      public.is_admin()
+      or (
+        (storage.foldername(name))[1] = 'items'
+        and (storage.foldername(name))[2] = auth.uid()::text
+      )
+    )
+  );
+
+-- Admin bootstrap (run once; set password in Auth dashboard separately):
+-- update public.profiles set role = 'admin', seller_approved = true where username = 'sorktl12';
+
+notify pgrst, 'reload schema';

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { ADMIN_ID } from '../constants'
 import { useLocale } from '../contexts/LocaleContext'
+import Show505Admin from '../components/Show505Admin'
 
 export default function Admin() {
   const { t } = useLocale()
@@ -89,6 +90,8 @@ export default function Admin() {
           ))}
         </ul>
       )}
+
+      <Show505Admin />
     </main>
   )
 }

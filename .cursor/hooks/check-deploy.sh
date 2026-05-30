@@ -14,5 +14,5 @@ if git diff --quiet HEAD -- src/ supabase/ index.html package.json vercel.json t
   exit 0
 fi
 
-echo '{"followup_message": "코드 변경이 있습니다. npm run ship (GitHub sync + Vercel 배포)을 실행해 주세요."}'
+echo '{"followup_message": "코드 변경이 있습니다. npm run deploy (GitHub sync + Vercel 배포)를 실행해 주세요."}'
 exit 0

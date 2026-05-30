@@ -10,6 +10,7 @@ import PostDetail from './pages/PostDetail'
 import Marketplace from './pages/Marketplace'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
+import Show505 from './pages/Show505'
 import NotFound from './pages/NotFound'
 
 function DemoBanner() {
@@ -60,6 +61,14 @@ export default function App() {
             <RequireAdmin>
               <Admin />
             </RequireAdmin>
+          }
+        />
+        <Route
+          path="/505"
+          element={
+            <RequireAuth>
+              <Show505 />
+            </RequireAuth>
           }
         />
         <Route path="*" element={<NotFound />} />
